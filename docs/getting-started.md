@@ -4,12 +4,21 @@
 
 로컬에 JDK 21이 없어도 됩니다. Gradle Toolchain(foojay resolver)이 JDK 21을 자동으로 내려받아 컴파일·테스트에 사용합니다. Gradle 실행에는 JDK 17 이상이 필요합니다.
 
+PostgreSQL이 필요합니다. Docker로 DB만 띄우고 앱은 Gradle로 실행합니다.
+
 ```bash
-./gradlew test       # 테스트
-./gradlew bootRun    # 실행 (http://localhost:8080)
+cp .env.example .env                 # 최초 1회, DB_PASSWORD 변경
+docker compose up -d postgres        # PostgreSQL 17 (localhost:5432)
+set -a; source .env; set +a          # DB_PASSWORD 등을 현재 셸에 export
+./gradlew bootRun                    # 실행 (http://localhost:8080), Flyway 마이그레이션 자동 적용
 ```
 
-포트를 바꾸려면 `SERVER_PORT=18080 ./gradlew bootRun`
+```bash
+./gradlew test       # 테스트. Testcontainers가 PostgreSQL 컨테이너를 직접 띄우므로 Docker만 실행 중이면 된다
+```
+
+- 포트를 바꾸려면 `SERVER_PORT=18080 ./gradlew bootRun`
+- 로컬 5432 포트가 사용 중이면 `.env`에 `DB_PORT=15432`를 설정하고 `DB_URL=jdbc:postgresql://localhost:15432/integrationhub`로 실행합니다.
 
 ## IDE 사용 방법
 

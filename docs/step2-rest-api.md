@@ -2,6 +2,8 @@
 
 STEP 1의 주문 예제를 Spring Boot REST API로 옮깁니다. 저장소는 임시 In-Memory 방식입니다.
 
+> STEP 3에서 저장소가 PostgreSQL + JPA로 바뀌었습니다. API 계약은 같고, 변경 사항은 [step3-postgresql-jpa.md](step3-postgresql-jpa.md)를 참고하세요.
+
 ## 계층 구조
 
 ```

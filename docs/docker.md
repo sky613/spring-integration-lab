@@ -3,10 +3,12 @@
 ## 실행
 
 ```bash
+cp .env.example .env    # 최초 1회. DB_PASSWORD를 변경한다 (.env는 Git에 커밋하지 않음)
 docker build -t enterprise-integration-hub:local .
 docker compose up -d --build
 curl http://localhost:8080/actuator/health   # {"status":"UP",...}
-docker compose down
+docker compose down        # 데이터 유지
+docker compose down -v     # DB 볼륨까지 삭제
 ```
 
 호스트의 8080 포트가 이미 사용 중이면 다른 포트로 매핑합니다.
@@ -29,8 +31,17 @@ APP_PORT=18080 docker compose up -d
 
 ## Compose 설정 (`docker-compose.yml`)
 
-| 항목 | 값 |
-|------|----|
-| 포트 | `${APP_PORT:-8080}:8080` |
-| `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75` |
-| 재시작 정책 | `unless-stopped` |
+| 서비스 | 항목 | 값 |
+|--------|------|----|
+| postgres | 이미지 | `postgres:17-alpine` |
+| postgres | 포트 | `${DB_PORT:-5432}:5432` |
+| postgres | 볼륨 | `postgres-data` (컨테이너를 재생성해도 데이터 유지) |
+| postgres | healthcheck | `pg_isready` |
+| app | 포트 | `${APP_PORT:-8080}:8080` |
+| app | `depends_on` | postgres가 healthy가 된 뒤 시작 |
+| app | DB 접속 | `DB_URL=jdbc:postgresql://postgres:5432/...`, `DB_USERNAME`, `DB_PASSWORD` (`.env`에서 주입) |
+| app | `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75` |
+
+`DB_PASSWORD`가 없으면 `docker compose`가 오류를 내며 시작하지 않습니다.
+
+DB 볼륨은 최초 생성 시점의 비밀번호로 초기화됩니다. 나중에 `.env`의 비밀번호를 바꾸면 `docker compose down -v`로 볼륨을 다시 만들어야 합니다.

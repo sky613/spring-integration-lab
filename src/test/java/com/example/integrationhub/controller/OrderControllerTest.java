@@ -3,12 +3,20 @@ package com.example.integrationhub.controller;
 import com.example.integrationhub.domain.OrderStatus;
 import com.example.integrationhub.dto.OrderRequest;
 import com.example.integrationhub.dto.OrderResponse;
+import com.example.integrationhub.exception.InsufficientStockException;
 import com.example.integrationhub.exception.InvalidOrderStatusException;
 import com.example.integrationhub.exception.OrderNotFoundException;
+import com.example.integrationhub.exception.UnknownProductException;
 import com.example.integrationhub.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mapping.PropertyReferenceException;
+import org.springframework.data.util.TypeInformation;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,6 +28,8 @@ import java.util.List;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.endsWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -93,13 +103,58 @@ class OrderControllerTest {
     }
 
     @Test
-    void findAllReturns200() throws Exception {
-        given(orderService.findAll()).willReturn(List.of(response(1L, OrderStatus.CREATED), response(2L, OrderStatus.PAID)));
+    void createReturns409WhenStockInsufficientAnd400WhenProductUnknown() throws Exception {
+        String body = """
+                {"customerId": "customer-1",
+                 "items": [{"productName": "keyboard", "unitPrice": 50000, "quantity": 2}]}
+                """;
+        given(orderService.create(any(OrderRequest.class)))
+                .willThrow(new InsufficientStockException("keyboard", 2, 1))
+                .willThrow(new UnknownProductException("keyboard"));
+
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Insufficient stock for keyboard: requested 2, available 1"));
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Unknown product: keyboard"));
+    }
+
+    @Test
+    void findAllReturnsArrayWithTotalCountAndDefaultPaging() throws Exception {
+        var defaultPage = PageRequest.of(0, 20, Sort.by("id"));
+        given(orderService.findAll(isNull(), eq(defaultPage))).willReturn(new PageImpl<>(
+                List.of(response(1L, OrderStatus.CREATED), response(2L, OrderStatus.PAID)), defaultPage, 42));
 
         mockMvc.perform(get("/api/orders"))
                 .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "42"))
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[1].status").value("PAID"));
+    }
+
+    @Test
+    void findAllPassesStatusAndPagingParameters() throws Exception {
+        var pageable = PageRequest.of(1, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
+        given(orderService.findAll(OrderStatus.PAID, pageable))
+                .willReturn(new PageImpl<>(List.of(response(6L, OrderStatus.PAID)), pageable, 6));
+
+        mockMvc.perform(get("/api/orders")
+                        .param("status", "PAID").param("page", "1").param("size", "5").param("sort", "createdAt,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(6));
+    }
+
+    @Test
+    void findAllReturns400ForInvalidStatusOrSort() throws Exception {
+        mockMvc.perform(get("/api/orders").param("status", "UNKNOWN"))
+                .andExpect(status().isBadRequest());
+
+        given(orderService.findAll(any(), any(Pageable.class)))
+                .willThrow(new PropertyReferenceException("unknown", TypeInformation.of(Object.class), List.of()));
+        mockMvc.perform(get("/api/orders").param("sort", "unknown"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Invalid sort property: unknown"));
     }
 
     @Test

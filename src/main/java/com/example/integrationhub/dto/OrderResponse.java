@@ -25,7 +25,7 @@ public record OrderResponse(
                 order.getCustomerId(),
                 order.getStatus(),
                 order.getItems().stream()
-                        .map(item -> new Item(item.productName(), item.unitPrice(), item.quantity(), item.amount()))
+                        .map(item -> new Item(item.getProductName(), item.getUnitPrice(), item.getQuantity(), item.amount()))
                         .toList(),
                 order.totalAmount(),
                 order.getCreatedAt());

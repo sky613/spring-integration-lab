@@ -1,20 +1,14 @@
 package com.example.integrationhub.repository;
 
 import com.example.integrationhub.domain.Order;
+import com.example.integrationhub.domain.OrderStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
-import java.util.Optional;
+/** Spring Data JPA가 실행 시점에 구현체(Proxy)를 만든다. 메서드 이름으로 JPQL이 생성된다. */
+public interface OrderRepository extends JpaRepository<Order, Long> {
 
-/** Service는 이 Interface에만 의존한다. 이후 JPA 구현으로 교체해도 Service 코드는 바뀌지 않는다. */
-public interface OrderRepository {
-
-    Order save(Order order);
-
-    Optional<Order> findById(Long id);
-
-    List<Order> findAll();
-
-    boolean existsById(Long id);
-
-    void deleteById(Long id);
+    // select o from Order o where o.status = ?1 order by ... limit/offset (+ count 쿼리)
+    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
 }

@@ -1,9 +1,32 @@
 spring:
   application:
     name: enterprise-integration-hub
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/integrationhub}
+    username: ${DB_USERNAME:integrationhub}
+    password: ${DB_PASSWORD:}
+  jpa:
+    # 스키마는 Flyway가 관리하고 Hibernate는 Entity와 테이블이 일치하는지만 검증한다.
+    hibernate:
+      ddl-auto: validate
+    # 요청이 끝날 때까지 DB 연결을 붙잡지 않도록 끄고, Service 트랜잭션 안에서 DTO 변환을 끝낸다.
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        # 지연 로딩 컬렉션을 IN 절로 묶어 조회해 N+1 문제를 완화한다.
+        default_batch_fetch_size: 100
+  data:
+    web:
+      pageable:
+        max-page-size: 100
 
 server:
   port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    org.hibernate.SQL: debug
 
 management:
   endpoints:

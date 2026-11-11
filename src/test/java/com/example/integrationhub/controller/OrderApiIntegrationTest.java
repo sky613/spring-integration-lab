@@ -1,10 +1,12 @@
 package com.example.integrationhub.controller;
 
+import com.example.integrationhub.TestcontainersConfiguration;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -12,12 +14,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 실제 Bean(Controller → Service → Repository)을 연결한 상태에서 CRUD 전체 흐름을 검증한다. */
+/** 실제 Bean(Controller → Service → Repository → PostgreSQL)을 연결한 상태에서 CRUD 전체 흐름을 검증한다. */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
 class OrderApiIntegrationTest {
 
     @Autowired
@@ -35,9 +39,10 @@ class OrderApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         int id = JsonPath.read(body, "$.id");
 
-        mockMvc.perform(get("/api/orders"))
+        mockMvc.perform(get("/api/orders").param("status", "CREATED").param("sort", "id,desc"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == %d)]".formatted(id)).exists());
+                .andExpect(header().exists("X-Total-Count"))
+                .andExpect(jsonPath("$[0].id").value(id));
 
         mockMvc.perform(patch("/api/orders/{id}/status", id)
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,10 +1,14 @@
 package com.example.integrationhub.controller;
 
+import com.example.integrationhub.domain.OrderStatus;
 import com.example.integrationhub.dto.OrderRequest;
 import com.example.integrationhub.dto.OrderResponse;
 import com.example.integrationhub.dto.OrderStatusRequest;
 import com.example.integrationhub.service.OrderService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -42,9 +47,18 @@ public class OrderController {
         return ResponseEntity.created(location).body(response);
     }
 
+    /**
+     * 기존 계약(JSON 배열 응답)을 유지하고, 페이징 정보는 X-Total-Count 헤더로 전달한다.
+     * 예: GET /api/orders?status=PAID&page=0&size=10&sort=createdAt,desc
+     */
     @GetMapping
-    public List<OrderResponse> findAll() {
-        return orderService.findAll();
+    public ResponseEntity<List<OrderResponse>> findAll(
+            @RequestParam(required = false) OrderStatus status,
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        Page<OrderResponse> page = orderService.findAll(status, pageable);
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(page.getTotalElements()))
+                .body(page.getContent());
     }
 
     @GetMapping("/{id}")
