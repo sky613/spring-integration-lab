@@ -4,17 +4,19 @@
 
 로컬에 JDK 21이 없어도 됩니다. Gradle Toolchain(foojay resolver)이 JDK 21을 자동으로 내려받아 컴파일·테스트에 사용합니다. Gradle 실행에는 JDK 17 이상이 필요합니다.
 
-PostgreSQL이 필요합니다. Docker로 DB만 띄우고 앱은 Gradle로 실행합니다.
+PostgreSQL과 Redis가 필요합니다. Docker로 DB와 Redis만 띄우고, 앱은 Gradle로 실행합니다.
 
 ```bash
-cp .env.example .env                 # 최초 1회, DB_PASSWORD 변경
-docker compose up -d postgres        # PostgreSQL 17 (localhost:5432)
-set -a; source .env; set +a          # DB_PASSWORD 등을 현재 셸에 export
+cp .env.example .env                 # 최초 1회, DB_PASSWORD·REDIS_PASSWORD 변경
+docker compose up -d postgres redis  # PostgreSQL 17 (localhost:5432), Redis 7.4 (localhost:6379)
+set -a; source .env; set +a          # DB_PASSWORD, REDIS_PASSWORD 등을 현재 셸에 export
 ./gradlew bootRun                    # 실행 (http://localhost:8080), Flyway 마이그레이션 자동 적용
 ```
 
+Redis가 없어도 API는 동작하지만 `/actuator/health`가 `DOWN`으로 표시됩니다.
+
 ```bash
-./gradlew test       # 테스트. Testcontainers가 PostgreSQL 컨테이너를 직접 띄우므로 Docker만 실행 중이면 된다
+./gradlew test       # 테스트. Testcontainers가 PostgreSQL·Redis 컨테이너를 직접 띄우므로 Docker만 실행 중이면 된다
 ```
 
 - 포트를 바꾸려면 `SERVER_PORT=18080 ./gradlew bootRun`

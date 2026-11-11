@@ -20,6 +20,11 @@ spring:
     web:
       pageable:
         max-page-size: 100
+    # 현재는 연결 확인(Actuator health)만 한다. 캐시 기능은 아직 사용하지 않는다.
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -37,3 +42,5 @@ management:
     health:
       probes:
         enabled: true
+      # 구성 요소(db, redis)별 UP/DOWN만 노출하고 접속 정보 같은 상세 내용은 숨긴다.
+      show-components: always

@@ -8,10 +8,11 @@
 | Spring Boot | 3.5.16 |
 | Gradle | 8.14.3 (Wrapper 포함) |
 | DB | PostgreSQL 17, Spring Data JPA (Hibernate), Flyway |
+| Cache | Redis 7.4 (현재 연결 확인만) |
+| 실행 환경 | Docker Compose (core-api, postgres, redis) |
 | 의존성 | Spring Web, Validation, Actuator |
 | 테스트 | JUnit 5, Testcontainers |
 
-Redis는 아직 포함하지 않습니다.
 
 ## 디렉터리 구조
 
@@ -28,8 +29,8 @@ src/main/java/com/example/integrationhub
 src/main/resources/application.yml
 src/main/resources/db/migration/   # Flyway (V1 스키마, V2 초기 재고)
 src/test/java/com/example/integrationhub
-├── TestcontainersConfiguration.java              # PostgreSQL 17 컨테이너 (@ServiceConnection)
-├── EnterpriseIntegrationHubApplicationTests.java   # /actuator/health 통합 테스트
+├── TestcontainersConfiguration.java              # PostgreSQL 17, Redis 7.4 컨테이너 (@ServiceConnection)
+├── EnterpriseIntegrationHubApplicationTests.java   # /actuator/health (db, redis UP) 통합 테스트
 ├── controller/   # OrderControllerTest(@WebMvcTest), OrderApiIntegrationTest
 └── service/      # OrderServiceIntegrationTest (트랜잭션, 재고, N+1)
 ```
@@ -47,6 +48,8 @@ src/test/java/com/example/integrationhub
 | `spring.jpa.open-in-view` | `false` | DTO 변환은 Service 트랜잭션 안에서 |
 | `hibernate.default_batch_fetch_size` | `100` | N+1 완화 |
 | `spring.data.web.pageable.max-page-size` | `100` | 페이지 크기 상한 |
+| `spring.data.redis.*` | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | 기본 `localhost:6379` |
+| `management.endpoint.health.show-components` | `always` | health에 db, redis 상태 표시 (상세 정보는 숨김) |
 | `logging.level.org.hibernate.SQL` | `debug` | 실행 SQL 로그 |
 | `management.endpoints.web.exposure.include` | `health,info` | 노출되는 Actuator Endpoint |
 | `management.endpoint.health.probes.enabled` | `true` | Liveness/Readiness Probe 활성화 |

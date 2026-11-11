@@ -1,3 +1,7 @@
+# 사용법: cp .env.example .env (비밀번호 변경) → docker compose up -d --build
+# 모든 포트는 127.0.0.1에만 바인딩한다. 같은 네트워크의 다른 기기에서는 접근할 수 없다.
+name: integration-hub
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -7,9 +11,12 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-integrationhub}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required. Copy .env.example to .env}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
+      # Named Volume: 컨테이너를 삭제·재생성해도 DB 데이터가 유지된다.
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -17,22 +24,60 @@ services:
       retries: 10
     restart: unless-stopped
 
-  app:
+  redis:
+    image: redis:7.4-alpine
+    container_name: integration-hub-redis
+    # 비밀번호 인증을 켠다. 캐시 데이터는 아직 없으므로 디스크 저장(RDB/AOF)은 끈다.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$${REDIS_PASSWORD}\" --save '' --appendonly no"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required. Copy .env.example to .env}
+      # redis-cli가 이 값으로 인증한다 (명령줄에 비밀번호를 노출하지 않음).
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  core-api:
     build: .
     image: enterprise-integration-hub:local
-    container_name: enterprise-integration-hub
+    container_name: integration-hub-core-api
+    # DB와 Redis가 healthy 상태가 된 뒤에 시작한다 (단순 컨테이너 시작이 아니라 접속 가능 시점).
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      # Host port is overridable when 8080 is already in use: APP_PORT=18080 docker compose up
-      - "${APP_PORT:-8080}:8080"
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+      # 같은 네트워크 안에서는 서비스 이름(postgres, redis)이 호스트 이름(DNS)이 된다.
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-integrationhub}
       DB_USERNAME: ${DB_USERNAME:-integrationhub}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required. Copy .env.example to .env}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required. Copy .env.example to .env}
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
 
 volumes:
   postgres-data:

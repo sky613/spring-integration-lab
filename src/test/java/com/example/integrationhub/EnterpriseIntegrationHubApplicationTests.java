@@ -16,10 +16,13 @@ class EnterpriseIntegrationHubApplicationTests {
     TestRestTemplate restTemplate;
 
     @Test
-    void healthEndpointReturnsUp() {
+    void healthEndpointReturnsUpWithDbAndRedis() {
         var response = restTemplate.getForEntity("/actuator/health", String.class);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(response.getBody()).contains("\"status\":\"UP\"");
+        assertThat(response.getBody())
+                .contains("\"status\":\"UP\"")
+                .contains("\"db\":{\"status\":\"UP\"}")
+                .contains("\"redis\":{\"status\":\"UP\"}");
     }
 }
