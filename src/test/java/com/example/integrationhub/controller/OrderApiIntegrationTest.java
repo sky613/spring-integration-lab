@@ -1,0 +1,61 @@
+package com.example.integrationhub.controller;
+
+import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/** 실제 Bean(Controller → Service → Repository)을 연결한 상태에서 CRUD 전체 흐름을 검증한다. */
+@SpringBootTest
+@AutoConfigureMockMvc
+class OrderApiIntegrationTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Test
+    void crudFlow() throws Exception {
+        String body = mockMvc.perform(post("/api/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId": "customer-1",
+                                 "items": [{"productName": "keyboard", "unitPrice": 50000, "quantity": 2}]}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(get("/api/orders"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == %d)]".formatted(id)).exists());
+
+        mockMvc.perform(patch("/api/orders/{id}/status", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status": "PAID"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"));
+
+        mockMvc.perform(get("/api/orders/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"))
+                .andExpect(jsonPath("$.totalAmount").value(100000));
+
+        mockMvc.perform(delete("/api/orders/{id}", id))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/orders/{id}", id))
+                .andExpect(status().isNotFound());
+    }
+}

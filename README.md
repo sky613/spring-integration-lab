@@ -18,3 +18,4 @@ docker compose up -d --build   # Docker 실행
 | [docs/getting-started.md](docs/getting-started.md) | 로컬 실행, IDE 설정 |
 | [docs/docker.md](docs/docker.md) | Docker 빌드·실행, 이미지/Compose 구성 |
 | [docs/step1-java21-basics.md](docs/step1-java21-basics.md) | STEP 1. Java 21 핵심 문법 (주문 처리 예제) |
+| [docs/step2-rest-api.md](docs/step2-rest-api.md) | STEP 2. 주문 관리 REST API (curl 예시 포함) |

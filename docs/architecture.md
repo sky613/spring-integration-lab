@@ -16,16 +16,21 @@ DB와 Redis는 아직 포함하지 않습니다.
 ```
 src/main/java/com/example/integrationhub
 ├── EnterpriseIntegrationHubApplication.java
-├── controller/   # REST Controller
-├── service/      # 비즈니스 로직
-├── repository/   # 데이터 접근 계층
+├── controller/   # REST Controller (OrderController)
+├── service/      # 비즈니스 로직 (OrderService)
+├── repository/   # 데이터 접근 계층 (OrderRepository, InMemoryOrderRepository)
+├── domain/       # Entity (Order, OrderItem, OrderStatus)
+├── dto/          # API 요청/응답 (OrderRequest, OrderStatusRequest, OrderResponse)
+├── exception/    # 도메인 예외, GlobalExceptionHandler
 └── study/        # 학습용 예제 (Spring Bean 아님, docs/step1-java21-basics.md 참고)
 src/main/resources/application.yml
 src/test/java/com/example/integrationhub
-└── EnterpriseIntegrationHubApplicationTests.java   # /actuator/health 통합 테스트
+├── EnterpriseIntegrationHubApplicationTests.java   # /actuator/health 통합 테스트
+├── controller/   # OrderControllerTest(@WebMvcTest), OrderApiIntegrationTest
+└── service/      # OrderServiceTest
 ```
 
-`controller` → `service` → `repository` 방향의 계층 구조를 따릅니다. 현재 각 계층은 `package-info.java`만 있는 빈 패키지입니다.
+`controller` → `service` → `repository` 방향의 계층 구조를 따릅니다. 주문 API 상세는 [step2-rest-api.md](step2-rest-api.md)를 참고하세요.
 
 ## 설정 (`application.yml`)
 
