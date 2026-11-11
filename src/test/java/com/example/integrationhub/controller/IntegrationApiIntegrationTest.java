@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -44,6 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
+// 기능 테스트이므로 인증은 고정 사용자로 대체한다. 인증·인가 자체는 security/SecurityIntegrationTest에서 실제 JWT로 검증한다.
+@WithMockUser(roles = {"USER", "ADMIN"})
 class IntegrationApiIntegrationTest {
 
     @Autowired
@@ -170,6 +173,38 @@ class IntegrationApiIntegrationTest {
         mockMvc.perform(get("/api/integrations/history/{id}", 999_999))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail", endsWith("999999")));
+    }
+
+    /** erp-flaky: 첫 호출만 503. 재처리하면 새 이력이 SUCCESS로 생기고 기존 FAILED 이력은 그대로 남는다. */
+    @Test
+    void retryFailedHistoryCreatesNewSuccessfulHistory() throws Exception {
+        int orderId = createOrder("erp-flaky");
+        String failed = mockMvc.perform(post("/api/integrations/orders/{id}/sync", orderId))
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.errorType").value("SERVER_ERROR"))
+                .andReturn().getResponse().getContentAsString();
+        int failedId = JsonPath.read(failed, "$.id");
+
+        String retried = mockMvc.perform(post("/api/integrations/history/{id}/retry", failedId))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", containsString("/api/integrations/history/")))
+                .andExpect(jsonPath("$.orderId").value(orderId))
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.erpOrderNo").value("ERP-" + orderId))
+                .andReturn().getResponse().getContentAsString();
+        assertThat((int) JsonPath.read(retried, "$.id")).isNotEqualTo(failedId);
+
+        mockMvc.perform(get("/api/integrations/history/{id}", failedId))
+                .andExpect(jsonPath("$.status").value("FAILED"));
+        // 성공한 이력은 재처리 대상이 아니다
+        mockMvc.perform(post("/api/integrations/history/{id}/retry", (int) JsonPath.read(retried, "$.id")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void retryUnknownHistoryReturns404() throws Exception {
+        mockMvc.perform(post("/api/integrations/history/{id}/retry", 999_999))
+                .andExpect(status().isNotFound());
     }
 
     /** Gateway가 보낸 요청 ID가 core-api를 거쳐 ERP, MES 요청 헤더까지 전달된다. WireMock 요청 기록으로 확인한다. */

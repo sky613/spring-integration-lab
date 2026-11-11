@@ -40,13 +40,18 @@ docker compose down -v            # DB 볼륨까지 삭제 (데이터 초기화)
 | mock-mes | `wiremock/wiremock:3.13.1` | 없음 (내부 전용) | `curl /__admin/health` | |
 | core-api | `enterprise-integration-hub:local` (빌드) | 없음 (Gateway 경유) | `curl /actuator/health/readiness` | postgres, redis가 healthy |
 | api-gateway | `enterprise-integration-hub-gateway:local` (빌드) | `127.0.0.1:${GATEWAY_PORT:-8080}` | `curl /actuator/health/readiness` | core-api, redis가 healthy |
+| keycloak | `quay.io/keycloak/keycloak:26.4.5` (`start-dev`, 개발 전용) | `127.0.0.1:${KEYCLOAK_PORT:-8180}` | `/health/ready` (관리 포트 9000, bash `/dev/tcp`) | |
+
+- Keycloak은 브라우저(클라이언트)가 직접 로그인해야 하므로 호스트 포트를 엽니다. Gateway를 거치지 않습니다.
+- core-api는 keycloak을 `depends_on`에 넣지 않습니다. 서명 검증용 공개키(JWKS)는 첫 토큰 검증 시점에 가져옵니다.
+- Keycloak 데이터는 컨테이너 내부(dev-file)에만 있어 `down` 후 `up`하면 Realm 파일에서 다시 가져옵니다.
 
 - core-api는 mock-erp, mock-mes를 `depends_on`에 넣지 않습니다. 외부 시스템이 꺼져 있어도 core-api는 실행되고, 연계만 `FAILED`로 기록됩니다.
 - Mock 응답은 `mock/erp/mappings`, `mock/mes/mappings`의 JSON을 읽기 전용으로 마운트합니다. 수정 후 `docker compose restart mock-erp mock-mes`로 반영합니다.
 
 | 리소스 | 이름 | 설명 |
 |--------|------|------|
-| Network | `integration-hub_backend` (bridge) | api-gateway, core-api, postgres, redis |
+| Network | `integration-hub_backend` (bridge) | api-gateway, core-api, postgres, redis, keycloak |
 | Network | `integration-hub_integration` (bridge) | core-api, mock-erp, mock-mes. Gateway는 여기에 없으므로 ERP/MES에 접근할 수 없음 |
 | Volume | `integration-hub_postgres-data` | PostgreSQL 데이터 디렉터리. `down`으로 지워지지 않음 |
 
@@ -59,6 +64,13 @@ core-api에 전달되는 환경 변수
 | `REDIS_HOST`, `REDIS_PORT` | `redis`, `6379` (컨테이너 내부 포트) |
 | `REDIS_PASSWORD` | `.env`에서 주입 |
 | `ERP_BASE_URL`, `MES_BASE_URL` | `http://mock-erp:8080`, `http://mock-mes:8080` |
+
+core-api의 JWT 검증 설정
+
+| 변수 | 값 |
+|------|----|
+| `OAUTH2_ISSUER_URI` | `http://localhost:${KEYCLOAK_PORT}/realms/integration-hub` (토큰의 `iss`, 외부 주소) |
+| `OAUTH2_JWK_SET_URI` | `http://keycloak:8080/realms/integration-hub/protocol/openid-connect/certs` (내부 주소) |
 
 api-gateway에 전달되는 환경 변수
 

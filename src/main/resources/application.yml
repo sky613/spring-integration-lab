@@ -16,6 +16,17 @@ spring:
         format_sql: true
         # 지연 로딩 컬렉션을 IN 절로 묶어 조회해 N+1 문제를 완화한다.
         default_batch_fetch_size: 100
+  # JWT 검증 설정. 기본값을 두지 않는다: 환경마다(로컬, Docker, 운영) 반드시 명시해야 하며, 없으면 기동에 실패한다.
+  #   issuer-uri: 토큰의 iss와 정확히 일치해야 한다 (클라이언트가 Keycloak에 접속한 외부 주소 기준).
+  #   jwk-set-uri: 서명 검증용 공개키(JWKS) 주소. Docker에서는 내부 주소(keycloak:8080)를 쓴다.
+  #   audiences: 이 API용으로 발급된 토큰만 받는다 (다른 Client용 토큰 재사용 방지).
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER_URI}
+          jwk-set-uri: ${OAUTH2_JWK_SET_URI}
+          audiences: integration-hub-api
   data:
     web:
       pageable:

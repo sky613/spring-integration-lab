@@ -1,5 +1,6 @@
 package com.example.integrationhub;
 
+import com.example.integrationhub.security.TestJwtIssuer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -43,7 +44,10 @@ public class TestcontainersConfiguration {
         return wireMock("mock/mes/mappings");
     }
 
-    /** Read Timeout을 1초로 줄여 Timeout 시나리오(Mock 지연 5초) 테스트 시간을 단축한다. */
+    /**
+     * Read Timeout을 1초로 줄여 Timeout 시나리오(Mock 지연 5초) 테스트 시간을 단축한다.
+     * JWT 서명 검증용 JWKS는 TestJwtIssuer가 제공한다.
+     */
     @Bean
     DynamicPropertyRegistrar mockSystemProperties(@Qualifier("mockErpContainer") GenericContainer<?> erp,
                                                   @Qualifier("mockMesContainer") GenericContainer<?> mes) {
@@ -52,6 +56,7 @@ public class TestcontainersConfiguration {
             registry.add("integration.mes.base-url", () -> baseUrl(mes));
             registry.add("integration.erp.read-timeout", () -> "1s");
             registry.add("integration.mes.read-timeout", () -> "1s");
+            registry.add("OAUTH2_JWK_SET_URI", TestJwtIssuer::jwkSetUri);
         };
     }
 

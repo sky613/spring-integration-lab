@@ -27,7 +27,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
-    @ExceptionHandler({InvalidOrderStatusException.class, InsufficientStockException.class})
+    @ExceptionHandler({InvalidOrderStatusException.class, InsufficientStockException.class,
+            IntegrationNotRetryableException.class})
     public ProblemDetail handleConflict(RuntimeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
     }

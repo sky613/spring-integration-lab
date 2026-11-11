@@ -11,7 +11,8 @@
 | Cache | Redis 7.4 (현재 연결 확인만) |
 | 외부 연계 | Spring `RestClient` → ERP, MES (Mock: WireMock 3.13) |
 | API Gateway | Spring Cloud 2025.0.3 (Northfields, Boot 3.5.x 호환), Gateway Server WebFlux 4.3.5 |
-| 실행 환경 | Docker Compose (api-gateway, core-api, postgres, redis, mock-erp, mock-mes) |
+| 인증·인가 | Keycloak 26.4.5 (OIDC, 개발용), Spring Security OAuth2 Resource Server (JWT, RBAC) |
+| 실행 환경 | Docker Compose (api-gateway, core-api, postgres, redis, mock-erp, mock-mes, keycloak) |
 | 의존성 | Spring Web, Validation, Actuator |
 | 테스트 | JUnit 5, Testcontainers |
 
@@ -44,6 +45,7 @@ src/main/java/com/example/integrationhub
 ├── dto/          # API 요청/응답 (OrderRequest, OrderStatusRequest, OrderResponse, IntegrationHistoryResponse)
 ├── exception/    # 도메인 예외, GlobalExceptionHandler
 ├── filter/       # RequestIdFilter (X-Request-Id → MDC, 로그·ERP/MES 호출에 전파)
+├── security/     # SecurityConfig (JWT 검증, URL별 역할 권한), SecurityProblemHandler (401/403)
 └── study/        # 학습용 예제 (Spring Bean 아님, docs/step1-java21-basics.md 참고)
 src/main/resources/application.yml
 src/main/resources/db/migration/   # Flyway (V1 스키마, V2 초기 재고, V3 연계 이력)
@@ -72,6 +74,7 @@ src/test/java/com/example/integrationhub
 | `integration.erp.*` | `ERP_BASE_URL`, `ERP_CONNECT_TIMEOUT`, `ERP_READ_TIMEOUT` | 기본 `http://localhost:8081`, 2s, 3s |
 | `integration.mes.*` | `MES_BASE_URL`, `MES_CONNECT_TIMEOUT`, `MES_READ_TIMEOUT` | 기본 `http://localhost:8082`, 2s, 3s |
 | `management.endpoint.health.show-components` | `always` | health에 db, redis 상태 표시 (상세 정보는 숨김) |
+| `spring.security.oauth2.resourceserver.jwt.*` | `OAUTH2_ISSUER_URI`, `OAUTH2_JWK_SET_URI`, audience `integration-hub-api` | 기본값 없음 (환경마다 필수) |
 | `logging.pattern.correlation` | `[%X{requestId:-}] ` | 모든 로그 줄에 요청 ID 표시 |
 | `logging.level.org.hibernate.SQL` | `debug` | 실행 SQL 로그 |
 | `management.endpoints.web.exposure.include` | `health,info` | 노출되는 Actuator Endpoint |

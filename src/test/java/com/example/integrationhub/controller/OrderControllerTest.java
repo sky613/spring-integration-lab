@@ -9,6 +9,9 @@ import com.example.integrationhub.exception.OrderNotFoundException;
 import com.example.integrationhub.exception.UnknownProductException;
 import com.example.integrationhub.service.OrderService;
 import org.junit.jupiter.api.Test;
+import com.example.integrationhub.security.SecurityConfig;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.context.annotation.Import;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
@@ -44,6 +47,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Web 계층(Controller, Validation, ExceptionHandler)만 로드하고 Service는 Mock으로 대체한다. */
 @WebMvcTest(OrderController.class)
+@Import(SecurityConfig.class)
+// 기능 테스트이므로 인증은 고정 사용자로 대체한다. 인증·인가 자체는 security/SecurityIntegrationTest에서 실제 JWT로 검증한다.
+@WithMockUser(roles = {"USER", "ADMIN"})
 class OrderControllerTest {
 
     @Autowired

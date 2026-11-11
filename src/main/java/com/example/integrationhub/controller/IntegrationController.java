@@ -35,7 +35,16 @@ public class IntegrationController {
      */
     @PostMapping("/orders/{id}/sync")
     public ResponseEntity<IntegrationHistoryResponse> syncOrder(@PathVariable Long id) {
-        IntegrationHistoryResponse response = integrationService.syncOrder(id);
+        return created(integrationService.syncOrder(id));
+    }
+
+    /** 실패 재처리: FAILED 이력의 주문을 다시 연계하고 새 이력을 만든다. FAILED가 아니면 409. */
+    @PostMapping("/history/{id}/retry")
+    public ResponseEntity<IntegrationHistoryResponse> retry(@PathVariable Long id) {
+        return created(integrationService.retry(id));
+    }
+
+    private static ResponseEntity<IntegrationHistoryResponse> created(IntegrationHistoryResponse response) {
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/integrations/history/{historyId}")
                 .buildAndExpand(response.id())

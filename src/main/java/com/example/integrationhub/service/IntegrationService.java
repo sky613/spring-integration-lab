@@ -13,6 +13,7 @@ import com.example.integrationhub.domain.IntegrationStatus;
 import com.example.integrationhub.dto.IntegrationHistoryResponse;
 import com.example.integrationhub.dto.OrderResponse;
 import com.example.integrationhub.exception.IntegrationHistoryNotFoundException;
+import com.example.integrationhub.exception.IntegrationNotRetryableException;
 import com.example.integrationhub.repository.IntegrationHistoryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +81,16 @@ public class IntegrationService {
                     IntegrationErrorType.REJECTED, mes.message(), requestedAt));
         }
         return record(IntegrationHistory.success(orderId, erp.erpOrderNo(), requestedAt));
+    }
+
+    /** FAILED 이력의 주문을 다시 연계한다. 기존 이력은 그대로 두고 새 이력을 만든다 (재처리 기록도 남는다). */
+    public IntegrationHistoryResponse retry(Long historyId) {
+        IntegrationHistory history = historyRepository.findById(historyId)
+                .orElseThrow(() -> new IntegrationHistoryNotFoundException(historyId));
+        if (history.getStatus() != IntegrationStatus.FAILED) {
+            throw new IntegrationNotRetryableException(historyId);
+        }
+        return syncOrder(history.getOrderId());
     }
 
     public Page<IntegrationHistoryResponse> findHistories(Long orderId, IntegrationStatus status, Pageable pageable) {

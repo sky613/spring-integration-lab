@@ -39,6 +39,38 @@
       }
     },
     {
+      "name": "Scenario erp-flaky (1st call): 503, then switches to Recovered",
+      "priority": 1,
+      "scenarioName": "erp-flaky",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "Recovered",
+      "request": {
+        "method": "POST", "urlPath": "/api/orders",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'erp-flaky')]" }]
+      },
+      "response": {
+        "status": 503,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"error\": \"ERP temporarily unavailable\"}"
+      }
+    },
+    {
+      "name": "Scenario erp-flaky (after recovery): received. Used to demonstrate retry",
+      "priority": 1,
+      "scenarioName": "erp-flaky",
+      "requiredScenarioState": "Recovered",
+      "request": {
+        "method": "POST", "urlPath": "/api/orders",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'erp-flaky')]" }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"erpOrderNo\": \"ERP-{{jsonPath request.body '$.orderId'}}\", \"result\": \"RECEIVED\"}",
+        "transformers": ["response-template"]
+      }
+    },
+    {
       "name": "Scenario erp-reset: connection reset by peer",
       "priority": 1,
       "request": {
