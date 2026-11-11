@@ -29,6 +29,17 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+# 외부 시스템(ERP, MES) 연계. 로컬 기본값은 docker compose의 mock-erp(8081), mock-mes(8082).
+integration:
+  erp:
+    base-url: ${ERP_BASE_URL:http://localhost:8081}
+    connect-timeout: ${ERP_CONNECT_TIMEOUT:2s}
+    read-timeout: ${ERP_READ_TIMEOUT:3s}
+  mes:
+    base-url: ${MES_BASE_URL:http://localhost:8082}
+    connect-timeout: ${MES_CONNECT_TIMEOUT:2s}
+    read-timeout: ${MES_READ_TIMEOUT:3s}
+
 logging:
   level:
     org.hibernate.SQL: debug

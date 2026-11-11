@@ -1,0 +1,54 @@
+{
+  "mappings": [
+    {
+      "name": "MES producible (default)",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/api/production/availability" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "producible": true, "message": "Production available" }
+      }
+    },
+    {
+      "name": "Scenario mes-timeout: responds after 5s (longer than read timeout)",
+      "priority": 1,
+      "request": {
+        "method": "POST", "urlPath": "/api/production/availability",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'mes-timeout')]" }]
+      },
+      "response": {
+        "status": 200,
+        "fixedDelayMilliseconds": 5000,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "producible": true, "message": "Production available" }
+      }
+    },
+    {
+      "name": "Scenario mes-error: service unavailable",
+      "priority": 1,
+      "request": {
+        "method": "POST", "urlPath": "/api/production/availability",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'mes-error')]" }]
+      },
+      "response": {
+        "status": 503,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "error": "MES unavailable" }
+      }
+    },
+    {
+      "name": "Scenario mes-reject: not producible (business failure)",
+      "priority": 1,
+      "request": {
+        "method": "POST", "urlPath": "/api/production/availability",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'mes-reject')]" }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "producible": false, "message": "Production line under maintenance" }
+      }
+    }
+  ]
+}

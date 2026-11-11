@@ -1,12 +1,12 @@
 # Docker 실행
 
-`core-api`(Spring Boot), `postgres`(PostgreSQL 17), `redis`(Redis 7.4)를 Docker Compose로 함께 실행합니다. 설계 배경과 검증 결과는 [step4-docker-compose.md](step4-docker-compose.md)를 참고하세요.
+`core-api`(Spring Boot), `postgres`(PostgreSQL 17), `redis`(Redis 7.4), `mock-erp`·`mock-mes`(WireMock 3.13)를 Docker Compose로 함께 실행합니다. 설계 배경과 검증 결과는 [step4-docker-compose.md](step4-docker-compose.md), ERP/MES 연계는 [step5-erp-mes-integration.md](step5-erp-mes-integration.md)를 참고하세요.
 
 ## 실행
 
 ```bash
 cp .env.example .env              # 최초 1회. DB_PASSWORD, REDIS_PASSWORD를 변경한다
-docker compose up -d --build      # 이미지 빌드 후 3개 서비스 실행
+docker compose up -d --build      # 이미지 빌드 후 5개 서비스 실행
 docker compose ps                 # 상태 확인 (모두 healthy가 되면 준비 완료)
 curl http://localhost:8080/actuator/health
 docker compose down               # 컨테이너, 네트워크 삭제 (DB 데이터 유지)
@@ -15,7 +15,7 @@ docker compose down -v            # DB 볼륨까지 삭제 (데이터 초기화)
 
 - `.env`에 `DB_PASSWORD`나 `REDIS_PASSWORD`가 없으면 `docker compose`가 오류를 내며 시작하지 않습니다.
 - DB 볼륨은 최초 생성 시점의 비밀번호로 초기화됩니다. 나중에 `.env`의 `DB_PASSWORD`를 바꾸면 `docker compose down -v`로 볼륨을 다시 만들어야 합니다.
-- 포트가 이미 사용 중이면 `.env`에서 `APP_PORT`, `DB_PORT`, `REDIS_PORT`를 바꿉니다. 사용 여부는 `lsof -iTCP:8080 -sTCP:LISTEN`으로 확인합니다.
+- 포트가 이미 사용 중이면 `.env`에서 `APP_PORT`, `DB_PORT`, `REDIS_PORT`, `ERP_PORT`, `MES_PORT`를 바꿉니다. 사용 여부는 `lsof -iTCP:8080 -sTCP:LISTEN`으로 확인합니다.
 
 ## 이미지 구성 (`Dockerfile`)
 
@@ -33,11 +33,16 @@ docker compose down -v            # DB 볼륨까지 삭제 (데이터 초기화)
 |--------|--------|-------------|-------------|-----------|
 | postgres | `postgres:17-alpine` | `127.0.0.1:${DB_PORT:-5432}` | `pg_isready` | |
 | redis | `redis:7.4-alpine` | `127.0.0.1:${REDIS_PORT:-6379}` | `redis-cli ping` (인증 포함) | |
+| mock-erp | `wiremock/wiremock:3.13.1` | `127.0.0.1:${ERP_PORT:-8081}` | `curl /__admin/health` | |
+| mock-mes | `wiremock/wiremock:3.13.1` | `127.0.0.1:${MES_PORT:-8082}` | `curl /__admin/health` | |
 | core-api | `enterprise-integration-hub:local` (빌드) | `127.0.0.1:${APP_PORT:-8080}` | `curl /actuator/health/readiness` | postgres, redis가 healthy |
+
+- core-api는 mock-erp, mock-mes를 `depends_on`에 넣지 않습니다. 외부 시스템이 꺼져 있어도 core-api는 실행되고, 연계만 `FAILED`로 기록됩니다.
+- Mock 응답은 `mock/erp/mappings`, `mock/mes/mappings`의 JSON을 읽기 전용으로 마운트합니다. 수정 후 `docker compose restart mock-erp mock-mes`로 반영합니다.
 
 | 리소스 | 이름 | 설명 |
 |--------|------|------|
-| Network | `integration-hub_backend` (bridge) | 3개 서비스가 서비스 이름(`postgres`, `redis`)으로 서로 접근 |
+| Network | `integration-hub_backend` (bridge) | 모든 서비스가 서비스 이름(`postgres`, `redis`, `mock-erp`, `mock-mes`)으로 서로 접근 |
 | Volume | `integration-hub_postgres-data` | PostgreSQL 데이터 디렉터리. `down`으로 지워지지 않음 |
 
 core-api에 전달되는 환경 변수
@@ -48,6 +53,7 @@ core-api에 전달되는 환경 변수
 | `DB_USERNAME`, `DB_PASSWORD` | `.env`에서 주입 |
 | `REDIS_HOST`, `REDIS_PORT` | `redis`, `6379` (컨테이너 내부 포트) |
 | `REDIS_PASSWORD` | `.env`에서 주입 |
+| `ERP_BASE_URL`, `MES_BASE_URL` | `http://mock-erp:8080`, `http://mock-mes:8080` |
 
 ## 로그 확인
 

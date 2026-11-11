@@ -8,7 +8,7 @@ PostgreSQL과 Redis가 필요합니다. Docker로 DB와 Redis만 띄우고, 앱�
 
 ```bash
 cp .env.example .env                 # 최초 1회, DB_PASSWORD·REDIS_PASSWORD 변경
-docker compose up -d postgres redis  # PostgreSQL 17 (localhost:5432), Redis 7.4 (localhost:6379)
+docker compose up -d postgres redis mock-erp mock-mes  # DB, Redis, ERP·MES Mock (localhost:8081, 8082)
 set -a; source .env; set +a          # DB_PASSWORD, REDIS_PASSWORD 등을 현재 셸에 export
 ./gradlew bootRun                    # 실행 (http://localhost:8080), Flyway 마이그레이션 자동 적용
 ```
@@ -16,7 +16,7 @@ set -a; source .env; set +a          # DB_PASSWORD, REDIS_PASSWORD 등을 현재
 Redis가 없어도 API는 동작하지만 `/actuator/health`가 `DOWN`으로 표시됩니다.
 
 ```bash
-./gradlew test       # 테스트. Testcontainers가 PostgreSQL·Redis 컨테이너를 직접 띄우므로 Docker만 실행 중이면 된다
+./gradlew test       # 테스트. Testcontainers가 PostgreSQL·Redis·WireMock 컨테이너를 직접 띄우므로 Docker만 실행 중이면 된다
 ```
 
 - 포트를 바꾸려면 `SERVER_PORT=18080 ./gradlew bootRun`

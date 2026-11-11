@@ -1,0 +1,51 @@
+{
+  "mappings": [
+    {
+      "name": "ERP order received (default)",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/api/orders" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"erpOrderNo\": \"ERP-{{jsonPath request.body '$.orderId'}}\", \"result\": \"RECEIVED\"}",
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Scenario erp-timeout: responds after 5s (longer than read timeout)",
+      "priority": 1,
+      "request": {
+        "method": "POST", "urlPath": "/api/orders",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'erp-timeout')]" }]
+      },
+      "response": {
+        "status": 200,
+        "fixedDelayMilliseconds": 5000,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"erpOrderNo\": \"ERP-LATE\", \"result\": \"RECEIVED\"}"
+      }
+    },
+    {
+      "name": "Scenario erp-error: internal server error",
+      "priority": 1,
+      "request": {
+        "method": "POST", "urlPath": "/api/orders",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'erp-error')]" }]
+      },
+      "response": {
+        "status": 500,
+        "headers": { "Content-Type": "application/json" },
+        "body": "{\"error\": \"ERP internal error\"}"
+      }
+    },
+    {
+      "name": "Scenario erp-reset: connection reset by peer",
+      "priority": 1,
+      "request": {
+        "method": "POST", "urlPath": "/api/orders",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.customerId == 'erp-reset')]" }]
+      },
+      "response": { "fault": "CONNECTION_RESET_BY_PEER" }
+    }
+  ]
+}

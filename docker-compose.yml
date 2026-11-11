@@ -44,11 +44,45 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # ERP·MES Mock (WireMock). 응답과 장애 시나리오는 mock/*/mappings의 JSON으로 정의한다.
+  mock-erp:
+    image: wiremock/wiremock:3.13.1
+    container_name: integration-hub-mock-erp
+    volumes:
+      - ./mock/erp/mappings:/home/wiremock/mappings:ro
+    ports:
+      - "127.0.0.1:${ERP_PORT:-8081}:8080"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/__admin/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  mock-mes:
+    image: wiremock/wiremock:3.13.1
+    container_name: integration-hub-mock-mes
+    volumes:
+      - ./mock/mes/mappings:/home/wiremock/mappings:ro
+    ports:
+      - "127.0.0.1:${MES_PORT:-8082}:8080"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/__admin/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   core-api:
     build: .
     image: enterprise-integration-hub:local
     container_name: integration-hub-core-api
     # DB와 Redis가 healthy 상태가 된 뒤에 시작한다 (단순 컨테이너 시작이 아니라 접속 가능 시점).
+    # mock-erp, mock-mes는 일부러 넣지 않는다. 외부 시스템이 꺼져 있어도 core-api는 떠 있고 연계만 FAILED로 기록된다.
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,6 +99,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required. Copy .env.example to .env}
+      ERP_BASE_URL: http://mock-erp:8080
+      MES_BASE_URL: http://mock-mes:8080
     networks:
       - backend
     healthcheck:

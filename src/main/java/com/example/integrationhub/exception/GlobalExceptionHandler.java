@@ -22,8 +22,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler(OrderNotFoundException.class)
-    public ProblemDetail handleNotFound(OrderNotFoundException e) {
+    @ExceptionHandler({OrderNotFoundException.class, IntegrationHistoryNotFoundException.class})
+    public ProblemDetail handleNotFound(RuntimeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
