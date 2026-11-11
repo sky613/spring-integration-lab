@@ -23,6 +23,11 @@ public class IntegrationClientConfig {
         return create(builder, properties.mes());
     }
 
+    @Bean
+    RetryExecutor retryExecutor(IntegrationProperties properties) {
+        return new RetryExecutor(properties.retry());
+    }
+
     private static RestClient create(RestClient.Builder builder, IntegrationProperties.Endpoint endpoint) {
         // Timeout을 지정하지 않으면 무한 대기할 수 있다. 외부 장애가 core-api 스레드 고갈로 전파되는 것을 막는다.
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();

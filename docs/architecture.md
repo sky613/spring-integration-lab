@@ -8,7 +8,7 @@
 | Spring Boot | 3.5.16 |
 | Gradle | 8.14.3 (Wrapper 포함) |
 | DB | PostgreSQL 17, Spring Data JPA (Hibernate), Flyway |
-| Cache | Redis 7.4 (현재 연결 확인만) |
+| Cache | Redis 7.4 (재고 조회 캐시, 연계 중복 실행 방지 락, Gateway Rate Limit) |
 | 외부 연계 | Spring `RestClient` → ERP, MES (Mock: WireMock 3.13) |
 | API Gateway | Spring Cloud 2025.0.3 (Northfields, Boot 3.5.x 호환), Gateway Server WebFlux 4.3.5 |
 | 인증·인가 | Keycloak 26.4.5 (OIDC, 개발용), Spring Security OAuth2 Resource Server (JWT, RBAC) |
@@ -37,9 +37,10 @@ api-gateway/                       # Spring Cloud Gateway (STEP 6, docs/step6-ap
     └── config/   # RateLimitConfig (KeyResolver), ErrorResponseConfig
 src/main/java/com/example/integrationhub
 ├── EnterpriseIntegrationHubApplication.java
-├── controller/   # REST Controller (OrderController, IntegrationController)
-├── service/      # 비즈니스 로직 (OrderService, IntegrationService)
-├── client/       # 외부 시스템 RestClient (ErpClient, MesClient), 연계 DTO, Timeout 설정
+├── config/       # CacheConfig (Redis 캐시 TTL·직렬화, 캐시 장애 시 Fail-open)
+├── controller/   # REST Controller (OrderController, IntegrationController, InventoryController)
+├── service/      # OrderService, IdempotentOrderService, InventoryService(+캐시 무효화), IntegrationService, IntegrationLock
+├── client/       # 외부 시스템 RestClient (ErpClient, MesClient), 연계 DTO, Timeout 설정, RetryExecutor
 ├── repository/   # Spring Data JPA (OrderRepository, InventoryRepository, IntegrationHistoryRepository)
 ├── domain/       # JPA Entity (Order, OrderItem, Inventory, IntegrationHistory), Enum
 ├── dto/          # API 요청/응답 (OrderRequest, OrderStatusRequest, OrderResponse, IntegrationHistoryResponse)
@@ -48,7 +49,7 @@ src/main/java/com/example/integrationhub
 ├── security/     # SecurityConfig (JWT 검증, URL별 역할 권한), SecurityProblemHandler (401/403)
 └── study/        # 학습용 예제 (Spring Bean 아님, docs/step1-java21-basics.md 참고)
 src/main/resources/application.yml
-src/main/resources/db/migration/   # Flyway (V1 스키마, V2 초기 재고, V3 연계 이력)
+src/main/resources/db/migration/   # Flyway (V1 스키마, V2 초기 재고, V3 연계 이력, V4 Idempotency-Key·감사 컬럼)
 mock/erp/mappings, mock/mes/mappings # WireMock 응답·장애 시나리오 정의 (Compose와 테스트가 함께 사용)
 src/test/java/com/example/integrationhub
 ├── TestcontainersConfiguration.java              # PostgreSQL 17, Redis 7.4, WireMock(ERP, MES) 컨테이너
@@ -70,7 +71,10 @@ src/test/java/com/example/integrationhub
 | `spring.jpa.open-in-view` | `false` | DTO 변환은 Service 트랜잭션 안에서 |
 | `hibernate.default_batch_fetch_size` | `100` | N+1 완화 |
 | `spring.data.web.pageable.max-page-size` | `100` | 페이지 크기 상한 |
-| `spring.data.redis.*` | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | 기본 `localhost:6379` |
+| `spring.data.redis.*` | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | 기본 `localhost:6379`. Connect·Command Timeout 500ms |
+| `cache.inventory.ttl` | `INVENTORY_CACHE_TTL` | 재고 캐시 TTL, 기본 60s |
+| `integration.retry.*` | `INTEGRATION_RETRY_MAX_ATTEMPTS` 등 | 최대 3회, 200ms × 2배 Backoff, 전체 4s 상한 |
+| `integration.lock-ttl` | | 연계 중복 실행 방지 락 30s |
 | `integration.erp.*` | `ERP_BASE_URL`, `ERP_CONNECT_TIMEOUT`, `ERP_READ_TIMEOUT` | 기본 `http://localhost:8081`, 2s, 3s |
 | `integration.mes.*` | `MES_BASE_URL`, `MES_CONNECT_TIMEOUT`, `MES_READ_TIMEOUT` | 기본 `http://localhost:8082`, 2s, 3s |
 | `management.endpoint.health.show-components` | `always` | health에 db, redis 상태 표시 (상세 정보는 숨김) |

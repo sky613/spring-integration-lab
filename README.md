@@ -26,3 +26,4 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/orders  # 모�
 | [docs/step5-erp-mes-integration.md](docs/step5-erp-mes-integration.md) | STEP 5. ERP / MES 연계 (RestClient, Timeout, 연계 이력, 장애 시나리오) |
 | [docs/step6-api-gateway.md](docs/step6-api-gateway.md) | STEP 6. Spring Cloud Gateway (Routing, Filter, 요청 ID, Rate Limiting, 장애 처리) |
 | [docs/step7-security-keycloak.md](docs/step7-security-keycloak.md) | STEP 7. Keycloak + Spring Security (OIDC PKCE, JWT, RBAC, 401/403) |
+| [docs/step8-resilience-redis.md](docs/step8-resilience-redis.md) | STEP 8. Redis 캐시, Retry·Backoff, Idempotency-Key, 중복 방지, 실패 재처리, 감사 로그 |

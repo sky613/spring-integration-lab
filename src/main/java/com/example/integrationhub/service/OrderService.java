@@ -10,12 +10,14 @@ import com.example.integrationhub.exception.OrderNotFoundException;
 import com.example.integrationhub.exception.UnknownProductException;
 import com.example.integrationhub.repository.InventoryRepository;
 import com.example.integrationhub.repository.OrderRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.stream.Collectors;
 
 /**
  * 클래스 기본값은 readOnly 트랜잭션(조회 최적화: Dirty Checking 생략, Flush 안 함)이고,
@@ -28,10 +30,13 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final InventoryRepository inventoryRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public OrderService(OrderRepository orderRepository, InventoryRepository inventoryRepository) {
+    public OrderService(OrderRepository orderRepository, InventoryRepository inventoryRepository,
+                        ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.inventoryRepository = inventoryRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -40,6 +45,10 @@ public class OrderService {
         request.items().stream()
                 .sorted(Comparator.comparing(OrderRequest.Item::productName))
                 .forEach(item -> lockInventory(item.productName()).decrease(item.quantity()));
+        // 재고 캐시는 커밋 후 무효화한다 (InventoryCacheEvictor). Rollback되면 이벤트도 전달되지 않는다.
+        eventPublisher.publishEvent(new InventoryChangedEvent(request.items().stream()
+                .map(OrderRequest.Item::productName)
+                .collect(Collectors.toSet())));
         return OrderResponse.from(orderRepository.save(request.toEntity()));
     }
 
@@ -84,6 +93,9 @@ public class OrderService {
         order.getItems().stream()
                 .sorted(Comparator.comparing(OrderItem::getProductName))
                 .forEach(item -> lockInventory(item.getProductName()).increase(item.getQuantity()));
+        eventPublisher.publishEvent(new InventoryChangedEvent(order.getItems().stream()
+                .map(OrderItem::getProductName)
+                .collect(Collectors.toSet())));
     }
 
     private Inventory lockInventory(String productName) {

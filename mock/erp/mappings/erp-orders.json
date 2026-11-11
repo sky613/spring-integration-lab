@@ -70,6 +70,11 @@
         "transformers": ["response-template"]
       }
     },
+    {"name": "Scenario erp-unavailable: always 503 (retried up to max attempts, then FAILED)", "priority": 1, "request": {"method": "POST", "urlPath": "/api/orders", "bodyPatterns": [{"matchesJsonPath": "$[?(@.customerId == 'erp-unavailable')]"}]}, "response": {"status": 503, "headers": {"Content-Type": "application/json"}, "body": "{\"error\": \"ERP unavailable\"}"}},
+    {"name": "Scenario erp-outage call 1: 503", "priority": 1, "scenarioName": "erp-outage", "requiredScenarioState": "Started", "request": {"method": "POST", "urlPath": "/api/orders", "bodyPatterns": [{"matchesJsonPath": "$[?(@.customerId == 'erp-outage')]"}]}, "response": {"status": 503, "headers": {"Content-Type": "application/json"}, "body": "{\"error\": \"ERP maintenance\"}"}, "newScenarioState": "Down2"},
+    {"name": "Scenario erp-outage call 2: 503", "priority": 1, "scenarioName": "erp-outage", "requiredScenarioState": "Down2", "request": {"method": "POST", "urlPath": "/api/orders", "bodyPatterns": [{"matchesJsonPath": "$[?(@.customerId == 'erp-outage')]"}]}, "response": {"status": 503, "headers": {"Content-Type": "application/json"}, "body": "{\"error\": \"ERP maintenance\"}"}, "newScenarioState": "Down3"},
+    {"name": "Scenario erp-outage call 3: 503 (exceeds automatic retries)", "priority": 1, "scenarioName": "erp-outage", "requiredScenarioState": "Down3", "request": {"method": "POST", "urlPath": "/api/orders", "bodyPatterns": [{"matchesJsonPath": "$[?(@.customerId == 'erp-outage')]"}]}, "response": {"status": 503, "headers": {"Content-Type": "application/json"}, "body": "{\"error\": \"ERP maintenance\"}"}, "newScenarioState": "Recovered"},
+    {"name": "Scenario erp-outage after recovery: received (manual retry succeeds)", "priority": 1, "scenarioName": "erp-outage", "requiredScenarioState": "Recovered", "request": {"method": "POST", "urlPath": "/api/orders", "bodyPatterns": [{"matchesJsonPath": "$[?(@.customerId == 'erp-outage')]"}]}, "response": {"status": 200, "headers": {"Content-Type": "application/json"}, "body": "{\"erpOrderNo\": \"ERP-{{jsonPath request.body '$.orderId'}}\", \"result\": \"RECEIVED\"}", "transformers": ["response-template"]}},
     {
       "name": "Scenario erp-reset: connection reset by peer",
       "priority": 1,

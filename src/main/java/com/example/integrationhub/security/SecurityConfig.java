@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .requestMatchers(GET, "/api/orders", "/api/orders/*").hasRole(USER)
                         .requestMatchers(POST, "/api/orders").hasRole(USER)
+                        .requestMatchers(GET, "/api/inventory/*").hasRole(USER)
                         .requestMatchers(PATCH, "/api/orders/*/status").hasRole(ADMIN)
                         .requestMatchers(DELETE, "/api/orders/*").hasRole(ADMIN)
                         .requestMatchers(POST, "/api/integrations/orders/*/sync").hasRole(ADMIN)

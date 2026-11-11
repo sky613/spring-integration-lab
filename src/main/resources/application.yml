@@ -31,14 +31,22 @@ spring:
     web:
       pageable:
         max-page-size: 100
-    # 현재는 연결 확인(Actuator health)만 한다. 캐시 기능은 아직 사용하지 않는다.
+    # 재고 캐시, 연계 중복 실행 방지 락에 사용한다.
+    # Timeout을 짧게 잡아 Redis 장애 시 오래 기다리지 않는다 (기본 Command Timeout은 60초).
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+      connect-timeout: 500ms
+      timeout: 500ms
 
 server:
   port: ${SERVER_PORT:8080}
+
+# 재고 조회 캐시 TTL. 무효화에 실패해도 이 시간이 지나면 DB 값으로 다시 채워진다.
+cache:
+  inventory:
+    ttl: ${INVENTORY_CACHE_TTL:60s}
 
 # 외부 시스템(ERP, MES) 연계. 로컬 기본값은 docker compose의 mock-erp(8081), mock-mes(8082).
 integration:
@@ -50,6 +58,16 @@ integration:
     base-url: ${MES_BASE_URL:http://localhost:8082}
     connect-timeout: ${MES_CONNECT_TIMEOUT:2s}
     read-timeout: ${MES_READ_TIMEOUT:3s}
+  # 외부 호출 1건당 자동 재시도 (502/503/504, 연결 거부만). 대기: 200ms → 400ms (±Jitter).
+  # max-elapsed는 Gateway Response Timeout(10s)보다 짧아야 한다. 그래야 core-api가 응답하기 전에 Gateway가 504로 끊지 않는다.
+  retry:
+    max-attempts: ${INTEGRATION_RETRY_MAX_ATTEMPTS:3}
+    initial-backoff: 200ms
+    multiplier: 2.0
+    max-backoff: 2s
+    max-elapsed: 4s
+  # 같은 주문의 연계 중복 실행 방지 락 유지 시간 (처리 중 프로세스가 죽어도 이 시간 후 자동 해제)
+  lock-ttl: 30s
 
 logging:
   # 모든 로그 줄에 요청 ID를 붙인다 (RequestIdFilter가 MDC에 저장). 요청 밖의 로그는 빈 값.

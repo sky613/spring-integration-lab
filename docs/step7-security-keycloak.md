@@ -32,6 +32,7 @@ Keycloak(IAM)이 로그인과 토큰 발급을 맡고, core-api는 OAuth2 Resour
 |-----|:----:|:-----:|------|
 | `GET /api/orders`, `GET /api/orders/{id}` | ✅ | (USER 역할 필요) | 주문 조회 |
 | `POST /api/orders` | ✅ | (USER 역할 필요) | 주문 등록 |
+| `GET /api/inventory/{productName}` (STEP 8) | ✅ | (USER 역할 필요) | 재고 조회 (Redis 캐시) |
 | `PATCH /api/orders/{id}/status`, `DELETE /api/orders/{id}` | ❌ 403 | ✅ | 명세에 없어 ADMIN으로 결정 |
 | `POST /api/integrations/orders/{id}/sync` | ❌ 403 | ✅ | 연계 실행 |
 | `GET /api/integrations/history`, `/history/{id}` | ❌ 403 | ✅ | 연계 이력 조회 |

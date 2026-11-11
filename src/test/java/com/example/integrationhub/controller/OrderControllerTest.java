@@ -7,6 +7,7 @@ import com.example.integrationhub.exception.InsufficientStockException;
 import com.example.integrationhub.exception.InvalidOrderStatusException;
 import com.example.integrationhub.exception.OrderNotFoundException;
 import com.example.integrationhub.exception.UnknownProductException;
+import com.example.integrationhub.service.IdempotentOrderService;
 import com.example.integrationhub.service.OrderService;
 import org.junit.jupiter.api.Test;
 import com.example.integrationhub.security.SecurityConfig;
@@ -57,6 +58,9 @@ class OrderControllerTest {
 
     @MockitoBean
     OrderService orderService;
+
+    @MockitoBean
+    IdempotentOrderService idempotentOrderService;
 
     private static OrderResponse response(Long id, OrderStatus status) {
         return new OrderResponse(id, "customer-1", status,

@@ -21,6 +21,8 @@ public class ErpClient {
     public ErpOrderResponse sendOrder(ErpOrderRequest request) {
         ErpOrderResponse response = restClient.post()
                 .uri("/api/orders")
+                // 같은 주문은 항상 같은 키. 자동 Retry나 재처리로 다시 보내도 ERP가 중복 접수하지 않도록 한다.
+                .header("Idempotency-Key", "order-" + request.orderId())
                 .body(request)
                 .retrieve()
                 .body(ErpOrderResponse.class);

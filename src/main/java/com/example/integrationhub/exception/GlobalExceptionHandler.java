@@ -1,5 +1,8 @@
 package com.example.integrationhub.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
@@ -22,13 +25,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler({OrderNotFoundException.class, IntegrationHistoryNotFoundException.class})
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler({OrderNotFoundException.class, IntegrationHistoryNotFoundException.class,
+            ProductNotFoundException.class})
     public ProblemDetail handleNotFound(RuntimeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
     @ExceptionHandler({InvalidOrderStatusException.class, InsufficientStockException.class,
-            IntegrationNotRetryableException.class})
+            IntegrationNotRetryableException.class, IntegrationInProgressException.class})
     public ProblemDetail handleConflict(RuntimeException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
     }
@@ -37,6 +43,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ProblemDetail handleOptimisticLock(OptimisticLockingFailureException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Order was modified concurrently. Please retry.");
+    }
+
+    /** 같은 Idempotency-Key로 다른 내용의 요청을 보낸 경우 */
+    @ExceptionHandler(IdempotencyKeyMismatchException.class)
+    public ProblemDetail handleIdempotencyKeyMismatch(IdempotencyKeyMismatchException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+    }
+
+    /** Redis·DB 연결 실패 등 일시적 인프라 장애. 내부 메시지는 노출하지 않고 503으로 재시도를 유도한다. */
+    @ExceptionHandler(DataAccessResourceFailureException.class)
+    public ProblemDetail handleResourceFailure(DataAccessResourceFailureException e) {
+        log.warn("Infrastructure unavailable: {}", e.toString());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "Service temporarily unavailable. Please retry.");
     }
 
     @ExceptionHandler(UnknownProductException.class)

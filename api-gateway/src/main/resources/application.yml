@@ -2,10 +2,14 @@ spring:
   application:
     name: api-gateway
   data:
+    # Rate Limiter 상태 저장. Redis 장애 시 RedisRateLimiter는 요청을 허용(Fail-open)하지만,
+    # Timeout이 없으면 기본 60초를 기다린 뒤에야 허용하므로 모든 API가 멈춘다. 짧게 잡는다.
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+      connect-timeout: 500ms
+      timeout: 500ms
   cloud:
     gateway:
       server:
@@ -28,7 +32,7 @@ spring:
             - id: core-api
               uri: ${CORE_API_URL:http://localhost:8080}
               predicates:
-                - Path=/api/orders,/api/orders/**,/api/integrations/**
+                - Path=/api/orders,/api/orders/**,/api/integrations/**,/api/inventory/**
 
 # 로컬에서 core-api(8080)와 함께 실행할 수 있도록 기본 8000. Docker에서는 SERVER_PORT=8080.
 server:

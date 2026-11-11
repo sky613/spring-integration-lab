@@ -38,7 +38,7 @@ WebFlux(Netty) 방식 Gateway를 선택했습니다. 이미 있는 Redis로 공�
 |---|----------|------|
 | 1 | 호환 버전 | Spring Cloud 2025.0.3 BOM (`api-gateway/build.gradle`) |
 | 2 | api-gateway 서비스 | `api-gateway/` (`ApiGatewayApplication`), `api-gateway/Dockerfile` |
-| 3 | core-api 라우팅 | Route `core-api`: `Path=/api/orders,/api/orders/**,/api/integrations/**` → `CORE_API_URL` |
+| 3 | core-api 라우팅 | Route `core-api`: `Path=/api/orders,/api/orders/**,/api/integrations/**` → `CORE_API_URL` (STEP 8에서 `/api/inventory/**` 추가) |
 | 4 | ERP/MES 노출 제한 | 3중 차단: ① 허용 목록 Route(그 외 경로 404) ② Mock에 호스트 포트 없음 ③ Mock은 `integration` 네트워크에만 있어 Gateway도 접근 불가 |
 | 5 | 요청 ID 전파 | Gateway `RequestIdFilter` → `X-Request-Id` → core-api `RequestIdFilter`(MDC) → 로그, ERP/MES 요청 헤더 |
 | 6 | 공통 요청/응답 로그 | Gateway `AccessLogFilter`: 요청 1줄 + 응답 1줄 (requestId, method, path, status, durationMs, client) |

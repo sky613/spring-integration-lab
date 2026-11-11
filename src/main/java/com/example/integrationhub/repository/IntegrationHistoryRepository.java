@@ -8,7 +8,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface IntegrationHistoryRepository extends JpaRepository<IntegrationHistory, Long> {
+
+    Optional<IntegrationHistory> findFirstByOrderIdAndStatusOrderByIdDesc(Long orderId, IntegrationStatus status);
 
     /** null인 조건은 무시한다. 예: orderId만 주면 해당 주문의 전체 이력. */
     @Query("""
