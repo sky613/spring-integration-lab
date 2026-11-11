@@ -9,13 +9,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.client.RestClient;
+import org.testcontainers.containers.GenericContainer;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -42,6 +48,14 @@ class IntegrationApiIntegrationTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    @Qualifier("mockErpContainer")
+    GenericContainer<?> mockErp;
+
+    @Autowired
+    @Qualifier("mockMesContainer")
+    GenericContainer<?> mockMes;
 
     @MockitoSpyBean
     ErpClient erpClient;
@@ -156,6 +170,33 @@ class IntegrationApiIntegrationTest {
         mockMvc.perform(get("/api/integrations/history/{id}", 999_999))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail", endsWith("999999")));
+    }
+
+    /** Gateway가 보낸 요청 ID가 core-api를 거쳐 ERP, MES 요청 헤더까지 전달된다. WireMock 요청 기록으로 확인한다. */
+    @Test
+    void propagatesRequestIdToErpAndMes() throws Exception {
+        int orderId = createOrder("customer-req-id");
+        String requestId = "sync-req-" + orderId;
+
+        mockMvc.perform(post("/api/integrations/orders/{id}/sync", orderId).header("X-Request-Id", requestId))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("X-Request-Id", requestId));
+
+        assertThat(countRequestsWithRequestId(mockErp, requestId)).isEqualTo(1);
+        assertThat(countRequestsWithRequestId(mockMes, requestId)).isEqualTo(1);
+    }
+
+    private static int countRequestsWithRequestId(GenericContainer<?> wireMock, String requestId) {
+        Map<?, ?> result = RestClient.builder()
+                .baseUrl("http://" + wireMock.getHost() + ":" + wireMock.getMappedPort(8080))
+                // 기본 JDK HttpClient의 h2c 업그레이드 요청을 WireMock이 끊는 문제를 피한다 (운영 코드와 같은 HttpURLConnection 사용).
+                .requestFactory(new SimpleClientHttpRequestFactory())
+                .build()
+                .post().uri("/__admin/requests/count")
+                .body(Map.of("method", "POST", "headers", Map.of("X-Request-Id", Map.of("equalTo", requestId))))
+                .retrieve()
+                .body(Map.class);
+        return (Integer) result.get("count");
     }
 
     private int createOrder(String customerId) throws Exception {

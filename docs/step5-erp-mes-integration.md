@@ -129,6 +129,7 @@ curl -s localhost:8080/api/integrations/history/999
 ```
 
 Mock을 직접 호출할 수도 있습니다: `curl -s -X POST localhost:8081/api/orders -H 'Content-Type: application/json' -d '{"orderId":1}'`
+(STEP 6부터 Compose의 Mock은 호스트 포트를 열지 않습니다. 직접 호출하려면 [getting-started.md](getting-started.md)처럼 Mock을 따로 띄웁니다.)
 
 ## 검증 결과
 

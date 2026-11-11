@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Gateway → core-api 호출 Timeout. 연계 API(ERP 3s + MES 3s)보다 길게 잡는다. 초과 시 504.
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:10s}
+          # 모든 Route에 적용. RequestRateLimiter: 클라이언트 IP별 Token Bucket (초당 replenishRate개 충전, 최대 burstCapacity개)
+          default-filters:
+            # 클라이언트가 보낸 Host를 그대로 전달한다. 없으면 core-api가 Location 헤더에 내부 주소(core-api:8080)를 넣는다.
+            - PreserveHostHeader
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:10}
+                redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:20}
+                key-resolver: "#{@clientIpKeyResolver}"
+          # 허용 목록(Allowlist) 방식: 여기 없는 경로(ERP/MES, core-api /actuator 등)는 404.
+          routes:
+            - id: core-api
+              uri: ${CORE_API_URL:http://localhost:8080}
+              predicates:
+                - Path=/api/orders,/api/orders/**,/api/integrations/**
+
+# 로컬에서 core-api(8080)와 함께 실행할 수 있도록 기본 8000. Docker에서는 SERVER_PORT=8080.
+server:
+  port: ${SERVER_PORT:8000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-components: always

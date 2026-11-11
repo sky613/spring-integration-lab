@@ -1,5 +1,8 @@
 # 사용법: cp .env.example .env (비밀번호 변경) → docker compose up -d --build
 # 모든 포트는 127.0.0.1에만 바인딩한다. 같은 네트워크의 다른 기기에서는 접근할 수 없다.
+# 접근 구조: Client → api-gateway(:8080) → core-api → mock-erp, mock-mes
+#   core-api, mock-erp, mock-mes는 호스트 포트를 열지 않는다. 외부 요청은 Gateway만 통과한다.
+#   mock-erp, mock-mes는 integration 네트워크에만 있어 Gateway에서도 직접 접근할 수 없다.
 name: integration-hub
 
 services:
@@ -45,15 +48,14 @@ services:
     restart: unless-stopped
 
   # ERP·MES Mock (WireMock). 응답과 장애 시나리오는 mock/*/mappings의 JSON으로 정의한다.
+  # 내부 시스템이므로 호스트 포트 없이 integration 네트워크(core-api만 접근)에만 둔다.
   mock-erp:
     image: wiremock/wiremock:3.13.1
     container_name: integration-hub-mock-erp
     volumes:
       - ./mock/erp/mappings:/home/wiremock/mappings:ro
-    ports:
-      - "127.0.0.1:${ERP_PORT:-8081}:8080"
     networks:
-      - backend
+      - integration
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/__admin/health"]
       interval: 5s
@@ -66,10 +68,8 @@ services:
     container_name: integration-hub-mock-mes
     volumes:
       - ./mock/mes/mappings:/home/wiremock/mappings:ro
-    ports:
-      - "127.0.0.1:${MES_PORT:-8082}:8080"
     networks:
-      - backend
+      - integration
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/__admin/health"]
       interval: 5s
@@ -88,8 +88,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    # 호스트 포트 없음: api-gateway를 통해서만 접근한다.
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
       # 같은 네트워크 안에서는 서비스 이름(postgres, redis)이 호스트 이름(DNS)이 된다.
@@ -103,6 +102,7 @@ services:
       MES_BASE_URL: http://mock-mes:8080
     networks:
       - backend
+      - integration
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
       interval: 10s
@@ -111,8 +111,42 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    image: enterprise-integration-hub-gateway:local
+    container_name: integration-hub-api-gateway
+    depends_on:
+      core-api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+      SERVER_PORT: 8080
+      CORE_API_URL: http://core-api:8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required. Copy .env.example to .env}
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
 networks:
+  # Gateway, core-api, postgres, redis
   backend:
+    driver: bridge
+  # core-api ↔ 외부 시스템(ERP, MES). Gateway는 이 네트워크에 없다.
+  integration:
     driver: bridge
 
 volumes:

@@ -1,0 +1,41 @@
+{
+  "mappings": [
+    {
+      "name": "Order list. Echoes the X-Request-Id the gateway forwarded",
+      "request": { "method": "GET", "urlPath": "/api/orders" },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-Total-Count": "0",
+          "X-Received-Request-Id": "{{request.headers.X-Request-Id}}"
+        },
+        "body": "[]",
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Order create. Echoes the request body",
+      "request": { "method": "POST", "urlPath": "/api/orders" },
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json",
+          "Location": "http://{{request.headers.Host}}/api/orders/1"
+        },
+        "body": "{{request.body}}",
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Slow endpoint (longer than the gateway response timeout in tests)",
+      "request": { "method": "GET", "urlPath": "/api/orders/slow" },
+      "response": { "status": 200, "fixedDelayMilliseconds": 3000, "body": "{}" }
+    },
+    {
+      "name": "core-api actuator exists downstream but must not be reachable through the gateway",
+      "request": { "method": "GET", "urlPathPattern": "/actuator/.*" },
+      "response": { "status": 200, "body": "{\"status\":\"UP\"}" }
+    }
+  ]
+}

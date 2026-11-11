@@ -41,6 +41,9 @@ integration:
     read-timeout: ${MES_READ_TIMEOUT:3s}
 
 logging:
+  # 모든 로그 줄에 요청 ID를 붙인다 (RequestIdFilter가 MDC에 저장). 요청 밖의 로그는 빈 값.
+  pattern:
+    correlation: "[%X{requestId:-}] "
   level:
     org.hibernate.SQL: debug
 

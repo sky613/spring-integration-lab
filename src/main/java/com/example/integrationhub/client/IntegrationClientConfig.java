@@ -1,5 +1,7 @@
 package com.example.integrationhub.client;
 
+import com.example.integrationhub.filter.RequestIdFilter;
+import org.slf4j.MDC;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +32,14 @@ public class IntegrationClientConfig {
         return builder.clone()
                 .baseUrl(endpoint.baseUrl())
                 .requestFactory(requestFactory)
+                // Gateway → core-api → ERP/MES까지 같은 요청 ID로 추적할 수 있도록 전달한다.
+                .requestInterceptor((request, body, execution) -> {
+                    String requestId = MDC.get(RequestIdFilter.MDC_KEY);
+                    if (requestId != null) {
+                        request.getHeaders().set(RequestIdFilter.HEADER, requestId);
+                    }
+                    return execution.execute(request, body);
+                })
                 .build();
     }
 }

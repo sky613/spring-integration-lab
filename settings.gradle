@@ -4,3 +4,6 @@ plugins {
 }
 
 rootProject.name = 'enterprise-integration-hub'
+
+// 루트 프로젝트는 core-api, api-gateway는 별도 Spring Boot 애플리케이션 (STEP 6)
+include 'api-gateway'

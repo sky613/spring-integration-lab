@@ -1,23 +1,26 @@
 # Docker 실행
 
-`core-api`(Spring Boot), `postgres`(PostgreSQL 17), `redis`(Redis 7.4), `mock-erp`·`mock-mes`(WireMock 3.13)를 Docker Compose로 함께 실행합니다. 설계 배경과 검증 결과는 [step4-docker-compose.md](step4-docker-compose.md), ERP/MES 연계는 [step5-erp-mes-integration.md](step5-erp-mes-integration.md)를 참고하세요.
+`api-gateway`(Spring Cloud Gateway), `core-api`(Spring Boot), `postgres`(PostgreSQL 17), `redis`(Redis 7.4), `mock-erp`·`mock-mes`(WireMock 3.13)를 Docker Compose로 함께 실행합니다. 설계 배경과 검증 결과는 [step4-docker-compose.md](step4-docker-compose.md), ERP/MES 연계는 [step5-erp-mes-integration.md](step5-erp-mes-integration.md), Gateway는 [step6-api-gateway.md](step6-api-gateway.md)를 참고하세요.
 
 ## 실행
 
 ```bash
 cp .env.example .env              # 최초 1회. DB_PASSWORD, REDIS_PASSWORD를 변경한다
-docker compose up -d --build      # 이미지 빌드 후 5개 서비스 실행
+docker compose up -d --build      # 이미지 2개(core-api, api-gateway) 빌드 후 6개 서비스 실행
 docker compose ps                 # 상태 확인 (모두 healthy가 되면 준비 완료)
-curl http://localhost:8080/actuator/health
+curl http://localhost:8080/actuator/health     # Gateway 자신의 Health
+curl http://localhost:8080/api/orders          # Gateway → core-api
 docker compose down               # 컨테이너, 네트워크 삭제 (DB 데이터 유지)
 docker compose down -v            # DB 볼륨까지 삭제 (데이터 초기화)
 ```
 
 - `.env`에 `DB_PASSWORD`나 `REDIS_PASSWORD`가 없으면 `docker compose`가 오류를 내며 시작하지 않습니다.
 - DB 볼륨은 최초 생성 시점의 비밀번호로 초기화됩니다. 나중에 `.env`의 `DB_PASSWORD`를 바꾸면 `docker compose down -v`로 볼륨을 다시 만들어야 합니다.
-- 포트가 이미 사용 중이면 `.env`에서 `APP_PORT`, `DB_PORT`, `REDIS_PORT`, `ERP_PORT`, `MES_PORT`를 바꿉니다. 사용 여부는 `lsof -iTCP:8080 -sTCP:LISTEN`으로 확인합니다.
+- 포트가 이미 사용 중이면 `.env`에서 `GATEWAY_PORT`, `DB_PORT`, `REDIS_PORT`를 바꿉니다. 사용 여부는 `lsof -iTCP:8080 -sTCP:LISTEN`으로 확인합니다.
 
-## 이미지 구성 (`Dockerfile`)
+## 이미지 구성 (`Dockerfile`, `api-gateway/Dockerfile`)
+
+두 이미지 모두 프로젝트 루트를 Build Context로 사용합니다. Gradle Wrapper와 `settings.gradle`을 함께 쓰기 때문입니다. 각 이미지는 자기 프로젝트만 빌드합니다(`:bootJar`, `:api-gateway:bootJar`).
 
 | Stage | Base Image | 내용 |
 |-------|-----------|------|
@@ -33,16 +36,18 @@ docker compose down -v            # DB 볼륨까지 삭제 (데이터 초기화)
 |--------|--------|-------------|-------------|-----------|
 | postgres | `postgres:17-alpine` | `127.0.0.1:${DB_PORT:-5432}` | `pg_isready` | |
 | redis | `redis:7.4-alpine` | `127.0.0.1:${REDIS_PORT:-6379}` | `redis-cli ping` (인증 포함) | |
-| mock-erp | `wiremock/wiremock:3.13.1` | `127.0.0.1:${ERP_PORT:-8081}` | `curl /__admin/health` | |
-| mock-mes | `wiremock/wiremock:3.13.1` | `127.0.0.1:${MES_PORT:-8082}` | `curl /__admin/health` | |
-| core-api | `enterprise-integration-hub:local` (빌드) | `127.0.0.1:${APP_PORT:-8080}` | `curl /actuator/health/readiness` | postgres, redis가 healthy |
+| mock-erp | `wiremock/wiremock:3.13.1` | 없음 (내부 전용) | `curl /__admin/health` | |
+| mock-mes | `wiremock/wiremock:3.13.1` | 없음 (내부 전용) | `curl /__admin/health` | |
+| core-api | `enterprise-integration-hub:local` (빌드) | 없음 (Gateway 경유) | `curl /actuator/health/readiness` | postgres, redis가 healthy |
+| api-gateway | `enterprise-integration-hub-gateway:local` (빌드) | `127.0.0.1:${GATEWAY_PORT:-8080}` | `curl /actuator/health/readiness` | core-api, redis가 healthy |
 
 - core-api는 mock-erp, mock-mes를 `depends_on`에 넣지 않습니다. 외부 시스템이 꺼져 있어도 core-api는 실행되고, 연계만 `FAILED`로 기록됩니다.
 - Mock 응답은 `mock/erp/mappings`, `mock/mes/mappings`의 JSON을 읽기 전용으로 마운트합니다. 수정 후 `docker compose restart mock-erp mock-mes`로 반영합니다.
 
 | 리소스 | 이름 | 설명 |
 |--------|------|------|
-| Network | `integration-hub_backend` (bridge) | 모든 서비스가 서비스 이름(`postgres`, `redis`, `mock-erp`, `mock-mes`)으로 서로 접근 |
+| Network | `integration-hub_backend` (bridge) | api-gateway, core-api, postgres, redis |
+| Network | `integration-hub_integration` (bridge) | core-api, mock-erp, mock-mes. Gateway는 여기에 없으므로 ERP/MES에 접근할 수 없음 |
 | Volume | `integration-hub_postgres-data` | PostgreSQL 데이터 디렉터리. `down`으로 지워지지 않음 |
 
 core-api에 전달되는 환경 변수
@@ -55,6 +60,15 @@ core-api에 전달되는 환경 변수
 | `REDIS_PASSWORD` | `.env`에서 주입 |
 | `ERP_BASE_URL`, `MES_BASE_URL` | `http://mock-erp:8080`, `http://mock-mes:8080` |
 
+api-gateway에 전달되는 환경 변수
+
+| 변수 | 값 |
+|------|----|
+| `SERVER_PORT` | `8080` (로컬 실행 기본값은 8000) |
+| `CORE_API_URL` | `http://core-api:8080` |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Rate Limiter 상태 저장용 |
+| (선택) `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY`, `GATEWAY_RESPONSE_TIMEOUT` | 기본 10, 20, 10s |
+
 ## 로그 확인
 
 | 목적 | 명령 |
@@ -65,6 +79,7 @@ core-api에 전달되는 환경 변수
 | 특정 시점 이후 | `docker compose logs --since 10m core-api` |
 | 타임스탬프 표시 | `docker compose logs -t postgres` |
 | 키워드 검색 | `docker compose logs core-api \| grep -E 'ERROR\|WARN'` |
+| 요청 ID로 Gateway·core-api 로그 추적 | `docker compose logs api-gateway core-api \| grep <X-Request-Id>` |
 | 실행 SQL 확인 | `docker compose logs -f core-api \| grep -A10 'org.hibernate.SQL'` |
 | 컨테이너 이름으로 확인 | `docker logs -f integration-hub-core-api` |
 | Healthcheck 결과 | `docker inspect integration-hub-core-api --format '{{json .State.Health}}'` |

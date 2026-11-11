@@ -10,14 +10,30 @@
 | DB | PostgreSQL 17, Spring Data JPA (Hibernate), Flyway |
 | Cache | Redis 7.4 (현재 연결 확인만) |
 | 외부 연계 | Spring `RestClient` → ERP, MES (Mock: WireMock 3.13) |
-| 실행 환경 | Docker Compose (core-api, postgres, redis, mock-erp, mock-mes) |
+| API Gateway | Spring Cloud 2025.0.3 (Northfields, Boot 3.5.x 호환), Gateway Server WebFlux 4.3.5 |
+| 실행 환경 | Docker Compose (api-gateway, core-api, postgres, redis, mock-erp, mock-mes) |
 | 의존성 | Spring Web, Validation, Actuator |
 | 테스트 | JUnit 5, Testcontainers |
 
 
+## 구성
+
+```
+Client ──▶ api-gateway (:8080, 유일한 공개 포트) ──▶ core-api ──▶ postgres, redis
+              │ Routing · 요청 ID · 로그 · Rate Limit       └──▶ mock-erp, mock-mes (integration 네트워크)
+              └──▶ redis (Rate Limit 버킷)
+```
+
+Gradle 멀티 프로젝트입니다. 루트 프로젝트(`:`)가 core-api이고, `:api-gateway`는 별도 Spring Boot 애플리케이션입니다.
+
 ## 디렉터리 구조
 
 ```
+api-gateway/                       # Spring Cloud Gateway (STEP 6, docs/step6-api-gateway.md)
+├── Dockerfile, build.gradle
+└── src/main/java/com/example/gateway
+    ├── filter/   # RequestIdFilter, AccessLogFilter (WebFilter), UpstreamUnavailableFilter (GlobalFilter)
+    └── config/   # RateLimitConfig (KeyResolver), ErrorResponseConfig
 src/main/java/com/example/integrationhub
 ├── EnterpriseIntegrationHubApplication.java
 ├── controller/   # REST Controller (OrderController, IntegrationController)
@@ -27,6 +43,7 @@ src/main/java/com/example/integrationhub
 ├── domain/       # JPA Entity (Order, OrderItem, Inventory, IntegrationHistory), Enum
 ├── dto/          # API 요청/응답 (OrderRequest, OrderStatusRequest, OrderResponse, IntegrationHistoryResponse)
 ├── exception/    # 도메인 예외, GlobalExceptionHandler
+├── filter/       # RequestIdFilter (X-Request-Id → MDC, 로그·ERP/MES 호출에 전파)
 └── study/        # 학습용 예제 (Spring Bean 아님, docs/step1-java21-basics.md 참고)
 src/main/resources/application.yml
 src/main/resources/db/migration/   # Flyway (V1 스키마, V2 초기 재고, V3 연계 이력)
@@ -55,6 +72,7 @@ src/test/java/com/example/integrationhub
 | `integration.erp.*` | `ERP_BASE_URL`, `ERP_CONNECT_TIMEOUT`, `ERP_READ_TIMEOUT` | 기본 `http://localhost:8081`, 2s, 3s |
 | `integration.mes.*` | `MES_BASE_URL`, `MES_CONNECT_TIMEOUT`, `MES_READ_TIMEOUT` | 기본 `http://localhost:8082`, 2s, 3s |
 | `management.endpoint.health.show-components` | `always` | health에 db, redis 상태 표시 (상세 정보는 숨김) |
+| `logging.pattern.correlation` | `[%X{requestId:-}] ` | 모든 로그 줄에 요청 ID 표시 |
 | `logging.level.org.hibernate.SQL` | `debug` | 실행 SQL 로그 |
 | `management.endpoints.web.exposure.include` | `health,info` | 노출되는 Actuator Endpoint |
 | `management.endpoint.health.probes.enabled` | `true` | Liveness/Readiness Probe 활성화 |
