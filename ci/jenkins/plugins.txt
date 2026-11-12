@@ -1,0 +1,13 @@
+# Jenkins 설정 코드화 (계정, Credential, Job)
+configuration-as-code
+job-dsl
+# Declarative Pipeline (Jenkinsfile)
+workflow-aggregator
+pipeline-stage-view
+# Git Checkout + notifyCommit(Webhook) 수신
+git
+# Credential을 환경 변수·파일로 주입 (로그에서는 ****로 가려짐)
+credentials-binding
+# 테스트 결과(JUnit XML) 집계
+junit
+timestamper

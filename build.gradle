@@ -43,3 +43,47 @@ tasks.named('test') {
 tasks.named('jar') {
     enabled = false
 }
+
+// STEP 10 CI: core-api와 api-gateway에 공통으로 적용한다.
+allprojects {
+    plugins.withId('org.springframework.boot') {
+        // CI 단계 분리. test(전체)는 그대로 두고, Docker(Testcontainers)가 필요한 테스트를 이름 규칙으로 나눈다.
+        def integrationTestPatterns = ['**/*IntegrationTest*', '**/*ApplicationTests*', '**/Gateway*Test*']
+        tasks.register('unitTest', Test) {
+            description = 'Docker 없이 실행되는 테스트'
+            group = 'verification'
+            useJUnitPlatform()
+            testClassesDirs = sourceSets.test.output.classesDirs
+            classpath = sourceSets.test.runtimeClasspath
+            exclude integrationTestPatterns
+        }
+        tasks.register('integrationTest', Test) {
+            description = 'Testcontainers(PostgreSQL, Redis, WireMock)를 사용하는 테스트'
+            group = 'verification'
+            useJUnitPlatform()
+            testClassesDirs = sourceSets.test.output.classesDirs
+            classpath = sourceSets.test.runtimeClasspath
+            include integrationTestPatterns
+            shouldRunAfter 'unitTest'
+        }
+
+        // Nexus(Maven hosted)에 실행 JAR(bootJar)를 올린다. 주소와 계정은 Gradle 속성으로만 받는다 (CI: ORG_GRADLE_PROJECT_nexus*).
+        apply plugin: 'maven-publish'
+        publishing {
+            publications {
+                bootJava(MavenPublication) {
+                    artifact tasks.named('bootJar')
+                }
+            }
+            repositories {
+                maven {
+                    name = 'nexus'
+                    url = providers.gradleProperty('nexusMavenUrl').orElse('http://localhost:8091/repository/maven-snapshots/')
+                    // 로컬 개발용 Nexus는 HTTP다 (127.0.0.1/Docker 내부망 전용). 원격 Nexus는 HTTPS를 쓴다.
+                    allowInsecureProtocol = true
+                    credentials(PasswordCredentials)
+                }
+            }
+        }
+    }
+}

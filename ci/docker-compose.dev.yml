@@ -1,0 +1,12 @@
+# 개발 환경 배포용 Override (Jenkins Deploy 단계). 소스에서 빌드하지 않고 Nexus에 저장된 이미지를 받아 실행한다.
+#   IMAGE_TAG=<빌드 번호-커밋> docker compose -p integration-hub --env-file <dev.env> \
+#     -f docker-compose.yml -f ci/docker-compose.dev.yml up -d --no-build --wait
+# Rollback은 IMAGE_TAG만 이전 값으로 바꿔 같은 명령을 실행한다 (docs/cicd.md).
+services:
+  core-api:
+    image: ${REGISTRY:-localhost:8092}/enterprise-integration-hub:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: always
+
+  api-gateway:
+    image: ${REGISTRY:-localhost:8092}/enterprise-integration-hub-gateway:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: always

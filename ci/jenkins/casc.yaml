@@ -1,0 +1,75 @@
+# Jenkins Configuration as Code. ${...} 값은 컨테이너 환경 변수(ci/.env)와 파일에서 읽는다. 비밀번호는 이 파일에 없다.
+jenkins:
+  systemMessage: "Enterprise Integration Hub 개발용 CI (127.0.0.1 전용, 운영 배포 금지)"
+  numExecutors: 2
+  # Jenkins 컨트롤러 자체 실행만 허용하는 단일 노드 개발 환경 (운영은 별도 Agent에서 빌드)
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USERNAME}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # Gitea 읽기 전용 계정 (소스 Checkout)
+          - usernamePassword:
+              scope: GLOBAL
+              id: gitea-credentials
+              description: Gitea read-only bot
+              username: "${GITEA_BOT_USERNAME}"
+              password: "${GITEA_BOT_PASSWORD}"
+          # Nexus 배포 전용 계정 (Maven snapshots, docker-hosted 쓰기만 가능)
+          - usernamePassword:
+              scope: GLOBAL
+              id: nexus-credentials
+              description: Nexus CI deployer
+              username: "${NEXUS_CI_USERNAME}"
+              password: "${NEXUS_CI_PASSWORD}"
+          # 개발 환경 docker compose용 .env (DB·Redis·Keycloak 비밀번호). 파일 자체는 Git에 없다.
+          - file:
+              scope: GLOBAL
+              id: dev-env-file
+              description: dev environment .env
+              fileName: dev.env
+              secretBytes: "${readFileBase64:/run/secrets/dev.env}"
+
+unclassified:
+  location:
+    url: "http://localhost:${JENKINS_PORT:-8090}/"
+
+jobs:
+  - script: |
+      pipelineJob('enterprise-integration-hub') {
+        description('Gitea main 브랜치 push → Build → Test → SCA → Nexus → 개발 환경 배포 → Healthcheck')
+        // 빌드 기록과 Artifact는 최근 20개만 보관
+        logRotator { numToKeep(20) }
+        properties {
+          pipelineTriggers {
+            triggers {
+              // 일정 없는 Poll SCM: 주기 확인은 하지 않고, Gitea Webhook(notifyCommit)이 올 때만 변경을 확인한다.
+              pollSCM { scmpoll_spec('') }
+            }
+          }
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('${GITEA_REPO_URL:-http://gitea:3000/ci-admin/enterprise-integration-hub.git}')
+                  credentials('gitea-credentials')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+      }
