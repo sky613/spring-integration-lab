@@ -122,7 +122,8 @@ services:
         condition: service_healthy
     # 호스트 포트 없음: api-gateway를 통해서만 접근한다.
     environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+      # G1 GC를 명시한다. CPU 2개 미만이거나 메모리 1792MB 미만인 컨테이너에서 JVM은 Serial GC를 자동 선택한다 (STEP 9 측정).
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
       # 같은 네트워크 안에서는 서비스 이름(postgres, redis)이 호스트 이름(DNS)이 된다.
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-integrationhub}
       DB_USERNAME: ${DB_USERNAME:-integrationhub}

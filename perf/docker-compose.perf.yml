@@ -1,0 +1,42 @@
+# 성능 측정 전용 Override. 기본 docker-compose.yml 위에 겹쳐 쓴다 (perf/run.sh가 사용).
+#   docker compose -f docker-compose.yml -f perf/docker-compose.perf.yml up -d --build
+# 운영 설정이 아니다: Gateway Rate Limit을 사실상 끄고 진단 로그(GC, Connection Pool)를 켠다.
+services:
+  # 측정마다 같은 조건이 되도록 CPU·메모리를 고정한다 (k6와 CPU를 나눠 쓰는 양을 일정하게).
+  core-api:
+    cpus: 2
+    mem_limit: 1g
+    environment:
+      # GC 로그: 힙 사용량, GC 종류, Pause 시간 (컨테이너 /tmp/gc.log)
+      # Hikari Housekeeper 주기를 30s → 5s로 줄여 Pool 상태(total/active/idle/waiting) 로그를 자주 남긴다.
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC -Xlog:gc*:file=/tmp/gc.log:uptime,level,tags -Dcom.zaxxer.hikari.housekeeping.periodMs=5000"
+      # env var 이름은 소문자로 바뀌어 클래스 이름(HikariPool)을 지정할 수 없으므로 패키지 단위로 켠다.
+      LOGGING_LEVEL_COM_ZAXXER_HIKARI_POOL: debug
+      # SQL 로그. 기본값(debug)은 SQL마다 여러 줄을 출력해 부하 시 병목이 된다 (STEP 9 측정). 측정·운영에서는 info.
+      SQL_LOG_LEVEL: ${SQL_LOG_LEVEL:-info}
+      # Connection Pool 크기 실험용 (기본값은 HikariCP 기본과 같은 10)
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      # 캐시 적용 전후 비교용. none이면 재고 조회가 매번 DB를 읽는다.
+      SPRING_CACHE_TYPE: ${CACHE_TYPE:-redis}
+
+  api-gateway:
+    cpus: 2
+    mem_limit: 512m
+    environment:
+      # 부하 도구는 IP 1개에서 요청하므로 기본값(초당 10개)이면 대부분 429가 된다. 측정 대상이 아니므로 충분히 크게.
+      RATE_LIMIT_REPLENISH_RATE: 100000
+      RATE_LIMIT_BURST_CAPACITY: 100000
+
+  postgres:
+    cpus: 2
+    mem_limit: 1g
+
+  # WireMock은 받은 요청을 메모리(Request Journal)에 계속 쌓는다. 측정 중 수십만 건이 쌓이면 Mock 자체가 GC로 느려져
+  # 측정 대상이 아닌 Mock 성능을 재게 된다 (첫 측정에서 Mock ERP CPU 628%, 메모리 2.1GB 확인). 최근 1,000건만 보관한다.
+  mock-erp:
+    cpus: 1
+    command: ["--max-request-journal-entries", "1000"]
+
+  mock-mes:
+    cpus: 1
+    command: ["--max-request-journal-entries", "1000"]

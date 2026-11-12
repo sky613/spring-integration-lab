@@ -1,0 +1,1 @@
+{"api":"order-list","vus":10,"requests":23251,"rps":774.86,"errorRate":0,"avg":12.8,"p50":7.18,"p95":52.39,"p99":58.65,"max":68.62}

@@ -1,0 +1,1 @@
+{"api":"order-create","vus":50,"requests":51900,"rps":1728.84,"errorRate":0,"avg":28.82,"p50":26.92,"p95":54.76,"p99":77.19,"max":338.71}

@@ -80,7 +80,7 @@ src/test/java/com/example/integrationhub
 | `management.endpoint.health.show-components` | `always` | health에 db, redis 상태 표시 (상세 정보는 숨김) |
 | `spring.security.oauth2.resourceserver.jwt.*` | `OAUTH2_ISSUER_URI`, `OAUTH2_JWK_SET_URI`, audience `integration-hub-api` | 기본값 없음 (환경마다 필수) |
 | `logging.pattern.correlation` | `[%X{requestId:-}] ` | 모든 로그 줄에 요청 ID 표시 |
-| `logging.level.org.hibernate.SQL` | `debug` | 실행 SQL 로그 |
+| `logging.level.org.hibernate.SQL` | `SQL_LOG_LEVEL` | 실행 SQL 로그, 기본 `debug`(학습용). 부하·운영 환경은 `info` (STEP 9) |
 | `management.endpoints.web.exposure.include` | `health,info` | 노출되는 Actuator Endpoint |
 | `management.endpoint.health.probes.enabled` | `true` | Liveness/Readiness Probe 활성화 |
 

@@ -74,7 +74,8 @@ logging:
   pattern:
     correlation: "[%X{requestId:-}] "
   level:
-    org.hibernate.SQL: debug
+    # 실행 SQL 로그(학습용 기본값 debug). 부하 상황에서는 SQL마다 여러 줄을 출력하는 비용이 커서 끈다 (SQL_LOG_LEVEL=info, STEP 9).
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:debug}
 
 management:
   endpoints:

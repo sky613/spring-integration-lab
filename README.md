@@ -27,3 +27,4 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/orders  # 모�
 | [docs/step6-api-gateway.md](docs/step6-api-gateway.md) | STEP 6. Spring Cloud Gateway (Routing, Filter, 요청 ID, Rate Limiting, 장애 처리) |
 | [docs/step7-security-keycloak.md](docs/step7-security-keycloak.md) | STEP 7. Keycloak + Spring Security (OIDC PKCE, JWT, RBAC, 401/403) |
 | [docs/step8-resilience-redis.md](docs/step8-resilience-redis.md) | STEP 8. Redis 캐시, Retry·Backoff, Idempotency-Key, 중복 방지, 실패 재처리, 감사 로그 |
+| [docs/performance-report.md](docs/performance-report.md) | STEP 9. k6 부하 테스트, 병목 분석(EXPLAIN, Pool, GC, Thread Dump, JFR), 개선 전후 비교 |
